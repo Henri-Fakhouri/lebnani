@@ -1,0 +1,15 @@
+services:
+  postgres:
+    image: postgres:16
+    container_name: lebnani-postgres
+    environment:
+      POSTGRES_DB: lebnani
+      POSTGRES_USER: lebnani
+      POSTGRES_PASSWORD: lebnani
+    ports:
+      - "5432:5432"
+    volumes:
+      - lebnani-postgres-data:/var/lib/postgresql/data
+
+volumes:
+  lebnani-postgres-data:
