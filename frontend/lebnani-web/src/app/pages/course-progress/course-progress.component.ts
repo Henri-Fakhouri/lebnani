@@ -4,35 +4,37 @@ import { ApiService, CourseProgressResponse } from '../../core/api.service';
 import { AuthService } from '../../core/auth.service';
 
 interface UserProgressResponse {
-    totalXp: number;
-    completedLessons: number;
-    currentStreak: number;
-    longestStreak: number;
+  totalXp: number;
+  completedLessons: number;
+  currentStreak: number;
+  longestStreak: number;
 }
 
 @Component({
-    selector: 'app-course-progress',
-    standalone: true,
-    template: `
+  selector: 'app-course-progress',
+  standalone: true,
+  template: `
     <main class="course-page">
       <header class="topbar">
         <div>
           <h1>{{ progress?.courseTitle || 'Lebnani' }}</h1>
           <p>
-        Ton parcours de libanais parlé
-        @if (currentUser) {
-            · {{ currentUser.displayName }} · {{ currentUser.role }}
-        }
-        </p>
+            Ton parcours de libanais parlé
+            @if (currentUser) {
+              · {{ currentUser.displayName }} · {{ currentUser.role }}
+            }
+          </p>
         </div>
 
-    <div class="topbar-actions">
-    @if (isAdmin) {
-  <button type="button" class="secondary" (click)="openAdminImport()">Import JSON</button>
-}
-    <button type="button" class="secondary" (click)="openReview()">Révisions</button>
-    <button type="button" (click)="logout()">Déconnexion</button>
-    </div>
+        <div class="topbar-actions">
+          @if (isAdmin) {
+            <button type="button" class="secondary" (click)="openAdminImport()">Import JSON</button>
+            <button type="button" class="secondary" (click)="openImportHistory()">Historique imports</button>
+          }
+
+          <button type="button" class="secondary" (click)="openReview()">Révisions</button>
+          <button type="button" (click)="logout()">Déconnexion</button>
+        </div>
       </header>
 
       @if (loading) {
@@ -110,7 +112,7 @@ interface UserProgressResponse {
       }
     </main>
   `,
-    styles: [`
+  styles: [`
     .course-page {
       min-height: 100vh;
       padding: 32px;
@@ -132,6 +134,8 @@ interface UserProgressResponse {
       display: flex;
       gap: 10px;
       align-items: center;
+      flex-wrap: wrap;
+      justify-content: flex-end;
     }
 
     h1, h2, p {
@@ -293,6 +297,10 @@ interface UserProgressResponse {
         flex-direction: column;
       }
 
+      .topbar-actions {
+        justify-content: flex-start;
+      }
+
       .summary-grid {
         grid-template-columns: 1fr;
       }
@@ -300,74 +308,78 @@ interface UserProgressResponse {
   `]
 })
 export class CourseProgressComponent implements OnInit {
-    progress: CourseProgressResponse | null = null;
-    userProgress: UserProgressResponse | null = null;
+  progress: CourseProgressResponse | null = null;
+  userProgress: UserProgressResponse | null = null;
 
-    currentUser: any = null;
-    isAdmin = false;
-    loading = true;
-    errorMessage = '';
+  currentUser: any = null;
+  isAdmin = false;
+  loading = true;
+  errorMessage = '';
 
-    constructor(
-        private readonly apiService: ApiService,
-        private readonly authService: AuthService,
-        private readonly router: Router
-    ) { }
+  constructor(
+    private readonly apiService: ApiService,
+    private readonly authService: AuthService,
+    private readonly router: Router
+  ) {}
 
-    ngOnInit(): void {
+  ngOnInit(): void {
     if (!this.authService.isLoggedIn()) {
-        this.router.navigateByUrl('/login');
-        return;
+      this.router.navigateByUrl('/login');
+      return;
     }
 
     this.currentUser = this.authService.getUser();
     this.isAdmin = this.authService.isAdmin();
 
     this.loadDashboard();
-    }
+  }
 
-    loadDashboard(): void {
-        this.loading = true;
+  loadDashboard(): void {
+    this.loading = true;
 
-        this.apiService.getCourseProgress(1).subscribe({
-            next: progress => {
-                this.progress = progress;
-                this.loadUserProgress();
-            },
-            error: () => {
-                this.errorMessage = 'Impossible de charger la progression.';
-                this.loading = false;
-            }
-        });
-    }
+    this.apiService.getCourseProgress(1).subscribe({
+      next: progress => {
+        this.progress = progress;
+        this.loadUserProgress();
+      },
+      error: () => {
+        this.errorMessage = 'Impossible de charger la progression.';
+        this.loading = false;
+      }
+    });
+  }
 
-    loadUserProgress(): void {
-        this.apiService.getUserProgress().subscribe({
-            next: progress => {
-                this.userProgress = progress;
-                this.loading = false;
-            },
-            error: () => {
-                this.errorMessage = 'Impossible de charger les statistiques.';
-                this.loading = false;
-            }
-        });
-    }
+  loadUserProgress(): void {
+    this.apiService.getUserProgress().subscribe({
+      next: progress => {
+        this.userProgress = progress;
+        this.loading = false;
+      },
+      error: () => {
+        this.errorMessage = 'Impossible de charger les statistiques.';
+        this.loading = false;
+      }
+    });
+  }
 
-    openLesson(lessonId: number): void {
-        this.router.navigateByUrl('/lesson/' + lessonId);
-    }
+  openLesson(lessonId: number): void {
+    this.router.navigateByUrl('/lesson/' + lessonId);
+  }
 
-    openReview(): void {
-        this.router.navigateByUrl('/review');
-    }
+  openReview(): void {
+    this.router.navigateByUrl('/review');
+  }
 
-    openAdminImport(): void {
-        this.router.navigateByUrl('/admin/import');
-    }
+  openAdminImport(): void {
+    this.router.navigateByUrl('/admin/import');
+  }
 
-    logout(): void {
-        this.authService.logout();
-        this.router.navigateByUrl('/login');
-    }
+  openImportHistory(): void {
+    this.router.navigateByUrl('/admin/imports');
+  }
+
+  logout(): void {
+    this.authService.logout();
+    this.router.navigateByUrl('/login');
+  }
 }
