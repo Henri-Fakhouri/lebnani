@@ -21,11 +21,14 @@ public class ExerciseAttempt {
     @JoinColumn(name = "exercise_id", nullable = false)
     private Exercise exercise;
 
-    @Column(name = "submitted_answer", nullable = false, columnDefinition = "TEXT")
+    @Column(name = "submitted_answer", columnDefinition = "TEXT")
     private String submittedAnswer;
 
-    @Column(name = "normalized_answer", nullable = false, columnDefinition = "TEXT")
+    @Column(name = "normalized_answer", columnDefinition = "TEXT")
     private String normalizedAnswer;
+
+    @Column(name = "selected_option_id")
+    private Long selectedOptionId;
 
     @Column(nullable = false)
     private boolean correct;
@@ -67,6 +70,14 @@ public class ExerciseAttempt {
 
     public void setNormalizedAnswer(String normalizedAnswer) {
         this.normalizedAnswer = normalizedAnswer;
+    }
+
+    public Long getSelectedOptionId() {
+        return selectedOptionId;
+    }
+
+    public void setSelectedOptionId(Long selectedOptionId) {
+        this.selectedOptionId = selectedOptionId;
     }
 
     public boolean isCorrect() {

@@ -6,6 +6,7 @@ public class AnswerSubmissionResponse {
     private final Long exerciseId;
     private final String submittedAnswer;
     private final String normalizedAnswer;
+    private final Long selectedOptionId;
     private final boolean correct;
     private final String expectedAnswer;
 
@@ -14,6 +15,7 @@ public class AnswerSubmissionResponse {
             Long exerciseId,
             String submittedAnswer,
             String normalizedAnswer,
+            Long selectedOptionId,
             boolean correct,
             String expectedAnswer
     ) {
@@ -21,6 +23,7 @@ public class AnswerSubmissionResponse {
         this.exerciseId = exerciseId;
         this.submittedAnswer = submittedAnswer;
         this.normalizedAnswer = normalizedAnswer;
+        this.selectedOptionId = selectedOptionId;
         this.correct = correct;
         this.expectedAnswer = expectedAnswer;
     }
@@ -39,6 +42,10 @@ public class AnswerSubmissionResponse {
 
     public String getNormalizedAnswer() {
         return normalizedAnswer;
+    }
+
+    public Long getSelectedOptionId() {
+        return selectedOptionId;
     }
 
     public boolean isCorrect() {
