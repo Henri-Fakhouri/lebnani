@@ -30,8 +30,7 @@ public class LessonAttemptService {
             ExerciseAttemptRepository exerciseAttemptRepository,
             AnswerNormalizer answerNormalizer,
             ProgressService progressService,
-            ReviewService reviewService
-    ) {
+            ReviewService reviewService) {
         this.lessonRepository = lessonRepository;
         this.exerciseRepository = exerciseRepository;
         this.exerciseOptionRepository = exerciseOptionRepository;
@@ -57,8 +56,7 @@ public class LessonAttemptService {
         return new StartLessonAttemptResponse(
                 savedAttempt.getId(),
                 lesson.getId(),
-                savedAttempt.getStatus().name()
-        );
+                savedAttempt.getStatus().name());
     }
 
     @Transactional
@@ -77,15 +75,15 @@ public class LessonAttemptService {
         if (exerciseAttemptRepository.existsByLessonAttemptIdAndExerciseId(attempt.getId(), request.getExerciseId())) {
             throw new BusinessException(
                     "EXERCISE_ALREADY_ANSWERED",
-                    "This exercise has already been answered in this lesson attempt."
-            );
+                    "This exercise has already been answered in this lesson attempt.");
         }
 
         Exercise exercise = exerciseRepository.findById(request.getExerciseId())
                 .orElseThrow(() -> new BusinessException("EXERCISE_NOT_FOUND", "Exercise not found."));
 
         if (!exercise.getLesson().getId().equals(attempt.getLesson().getId())) {
-            throw new BusinessException("EXERCISE_NOT_IN_LESSON", "This exercise does not belong to the lesson attempt.");
+            throw new BusinessException("EXERCISE_NOT_IN_LESSON",
+                    "This exercise does not belong to the lesson attempt.");
         }
 
         AnswerValidationResult validationResult = validateAnswer(exercise, request);
@@ -111,8 +109,7 @@ public class LessonAttemptService {
                 validationResult.normalizedAnswer(),
                 validationResult.selectedOptionId(),
                 validationResult.correct(),
-                validationResult.expectedAnswer()
-        );
+                validationResult.expectedAnswer());
     }
 
     private AnswerValidationResult validateAnswer(Exercise exercise, AnswerSubmissionRequest request) {
@@ -129,7 +126,8 @@ public class LessonAttemptService {
 
     private AnswerValidationResult validateMultipleChoiceAnswer(Exercise exercise, AnswerSubmissionRequest request) {
         if (request.getSelectedOptionId() == null) {
-            throw new BusinessException("SELECTED_OPTION_REQUIRED", "selectedOptionId is required for multiple choice exercises.");
+            throw new BusinessException("SELECTED_OPTION_REQUIRED",
+                    "selectedOptionId is required for multiple choice exercises.");
         }
 
         ExerciseOption selectedOption = exerciseOptionRepository.findById(request.getSelectedOptionId())
@@ -144,8 +142,7 @@ public class LessonAttemptService {
                 answerNormalizer.normalize(selectedOption.getTextValue()),
                 selectedOption.getId(),
                 selectedOption.isCorrect(),
-                exercise.getCorrectAnswer()
-        );
+                exercise.getCorrectAnswer());
     }
 
     private AnswerValidationResult validateTypedAnswer(Exercise exercise, AnswerSubmissionRequest request) {
@@ -156,17 +153,24 @@ public class LessonAttemptService {
         String submittedAnswer = request.getAnswer();
         String normalizedAnswer = answerNormalizer.normalize(submittedAnswer);
         String expectedAnswer = exercise.getCorrectAnswer();
-        String normalizedExpectedAnswer = answerNormalizer.normalize(expectedAnswer);
 
-        boolean correct = normalizedAnswer.equals(normalizedExpectedAnswer);
+        boolean correct = exercise.getAcceptedAnswers()
+                .stream()
+                .map(ExerciseAcceptedAnswer::getAnswerText)
+                .map(answerNormalizer::normalize)
+                .anyMatch(normalizedAnswer::equals);
+
+        if (exercise.getAcceptedAnswers().isEmpty()) {
+            String normalizedExpectedAnswer = answerNormalizer.normalize(expectedAnswer);
+            correct = normalizedAnswer.equals(normalizedExpectedAnswer);
+        }
 
         return new AnswerValidationResult(
                 submittedAnswer,
                 normalizedAnswer,
                 null,
                 correct,
-                expectedAnswer
-        );
+                expectedAnswer);
     }
 
     @Transactional
@@ -183,16 +187,14 @@ public class LessonAttemptService {
         }
 
         long totalExercises = exerciseRepository.countByLessonIdAndPublishedTrue(
-                attempt.getLesson().getId()
-        );
+                attempt.getLesson().getId());
 
         long answeredExercises = exerciseAttemptRepository.countByLessonAttemptId(attempt.getId());
 
         if (answeredExercises < totalExercises) {
             throw new BusinessException(
                     "LESSON_NOT_FULLY_ANSWERED",
-                    "You must answer all lesson exercises before completing the lesson."
-            );
+                    "You must answer all lesson exercises before completing the lesson.");
         }
 
         long correctAnswers = exerciseAttemptRepository.countByLessonAttemptIdAndCorrectTrue(attempt.getId());
@@ -212,8 +214,7 @@ public class LessonAttemptService {
                 totalExercises,
                 answeredExercises,
                 correctAnswers,
-                xpAwarded
-        );
+                xpAwarded);
     }
 
     private record AnswerValidationResult(
@@ -221,7 +222,6 @@ public class LessonAttemptService {
             String normalizedAnswer,
             Long selectedOptionId,
             boolean correct,
-            String expectedAnswer
-    ) {
+            String expectedAnswer) {
     }
 }

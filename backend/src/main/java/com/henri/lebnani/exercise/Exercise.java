@@ -42,6 +42,10 @@ public class Exercise {
     @OrderBy("displayOrder ASC")
     private List<ExerciseOption> options = new ArrayList<>();
 
+    @OneToMany(mappedBy = "exercise", fetch = FetchType.LAZY)
+    @OrderBy("displayOrder ASC")
+    private List<ExerciseAcceptedAnswer> acceptedAnswers = new ArrayList<>();
+
     public Long getId() {
         return id;
     }
@@ -76,5 +80,9 @@ public class Exercise {
 
     public List<ExerciseOption> getOptions() {
         return options;
+    }
+
+    public List<ExerciseAcceptedAnswer> getAcceptedAnswers() {
+        return acceptedAnswers;
     }
 }

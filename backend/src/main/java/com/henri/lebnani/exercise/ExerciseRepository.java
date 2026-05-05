@@ -7,7 +7,7 @@ import java.util.List;
 
 public interface ExerciseRepository extends JpaRepository<Exercise, Long> {
 
-    @EntityGraph(attributePaths = "options")
+    @EntityGraph(attributePaths = {"options", "acceptedAnswers"})
     List<Exercise> findByLessonIdAndPublishedTrueOrderByDisplayOrderAsc(Long lessonId);
 
     long countByLessonIdAndPublishedTrue(Long lessonId);

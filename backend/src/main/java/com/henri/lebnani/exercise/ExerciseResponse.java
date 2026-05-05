@@ -9,6 +9,7 @@ public class ExerciseResponse {
     private final String promptFr;
     private final int displayOrder;
     private final List<ExerciseOptionResponse> options;
+    private final int acceptedAnswerCount;
 
     public ExerciseResponse(Exercise exercise) {
         this.id = exercise.getId();
@@ -19,6 +20,7 @@ public class ExerciseResponse {
                 .stream()
                 .map(ExerciseOptionResponse::new)
                 .toList();
+        this.acceptedAnswerCount = exercise.getAcceptedAnswers().size();
     }
 
     public Long getId() {
@@ -39,5 +41,9 @@ public class ExerciseResponse {
 
     public List<ExerciseOptionResponse> getOptions() {
         return options;
+    }
+
+    public int getAcceptedAnswerCount() {
+        return acceptedAnswerCount;
     }
 }
