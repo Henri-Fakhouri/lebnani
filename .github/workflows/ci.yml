@@ -55,3 +55,48 @@ jobs:
 
       - name: Build frontend
         run: npm run build
+
+  sonar:
+    name: SonarQube Cloud analysis
+    runs-on: ubuntu-latest
+    needs:
+      - backend
+      - frontend
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - name: Build backend classes
+        working-directory: backend
+        run: |
+          chmod +x mvnw
+          ./mvnw -DskipTests package
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: frontend/lebnani-web/package-lock.json
+
+      - name: Install frontend dependencies
+        working-directory: frontend/lebnani-web
+        run: npm ci
+
+      - name: Build frontend
+        working-directory: frontend/lebnani-web
+        run: npm run build
+
+      - name: Run SonarQube Cloud scan
+        uses: SonarSource/sonarqube-scan-action@v6
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
