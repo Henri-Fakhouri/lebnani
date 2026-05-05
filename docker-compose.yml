@@ -3,9 +3,9 @@ services:
     image: postgres:16
     container_name: lebnani-postgres
     environment:
-      POSTGRES_DB: lebnani
-      POSTGRES_USER: lebnani
-      POSTGRES_PASSWORD: lebnani
+      POSTGRES_DB: ${POSTGRES_DB:-lebnani}
+      POSTGRES_USER: ${POSTGRES_USER:-lebnani}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-lebnani}
     ports:
       - "5432:5432"
     volumes:
@@ -19,11 +19,11 @@ services:
     depends_on:
       - postgres
     environment:
-      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/lebnani
-      SPRING_DATASOURCE_USERNAME: lebnani
-      SPRING_DATASOURCE_PASSWORD: lebnani
-      APP_JWT_SECRET: CHANGE_THIS_SECRET_CHANGE_THIS_SECRET_CHANGE_THIS_SECRET_123456
-      APP_JWT_EXPIRATION_MINUTES: 60
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB:-lebnani}
+      SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER:-lebnani}
+      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:-lebnani}
+      APP_JWT_SECRET: ${APP_JWT_SECRET:-CHANGE_THIS_SECRET_CHANGE_THIS_SECRET_CHANGE_THIS_SECRET_123456}
+      APP_JWT_EXPIRATION_MINUTES: ${APP_JWT_EXPIRATION_MINUTES:-60}
     ports:
       - "8080:8080"
 
