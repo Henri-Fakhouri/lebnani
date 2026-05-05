@@ -1,8 +1,8 @@
 # Lebnani
 
-Lebnani is a web app for learning spoken Lebanese Arabic, starting with French-speaking learners.
+Lebnani is a full-stack web app for learning spoken Lebanese Arabic, starting with French-speaking learners.
 
-The project is built as a full-stack learning platform with:
+The project includes:
 
 - Java 21
 - Spring Boot
@@ -12,62 +12,7 @@ The project is built as a full-stack learning platform with:
 - Angular
 - Docker Compose
 - Swagger/OpenAPI
-
----
-
-## Current Features
-
-### Authentication
-
-- Register
-- Login
-- JWT authentication
-- Role-based access:
-  - LEARNER
-  - CONTENT_EDITOR
-  - ADMIN
-
-### Learning
-
-- Browse courses
-- Browse units
-- Browse lessons
-- Start a lesson attempt
-- Answer exercises
-- Multiple-choice exercises
-- Typed-answer exercises
-- Accepted answer variants
-- Complete lessons
-- Score calculation
-- XP tracking
-- Streak tracking
-- Course progress tracking
-
-### Review System
-
-- Wrong answers create review items
-- Review queue
-- Answer review items
-- Review items are scheduled or mastered
-
-### Admin
-
-- JSON content import
-- Content validation
-- Import run tracking
-- Admin-only frontend page
-
-### Frontend
-
-- Login page
-- Register page
-- Course dashboard
-- Lesson player
-- Lesson result screen
-- Review queue page
-- Admin JSON import page
-- Route guards
-- JWT HTTP interceptor
+- GitHub Actions CI
 
 ---
 
@@ -78,59 +23,47 @@ lebnani/
 ├── backend/
 │   ├── src/
 │   ├── pom.xml
+│   ├── Dockerfile
 │   └── docker-compose.yml
 ├── frontend/
 │   └── lebnani-web/
+│       ├── src/
+│       ├── Dockerfile
+│       └── nginx.conf
+├── docker-compose.yml
+├── .env.example
 └── README.md
 ````
 
 ---
 
-## Requirements
+## Run Full Stack With Docker
 
-Install:
+Use this mode when you want to run the whole app easily.
 
-* Java 21
-* Maven wrapper is included
-* Docker
-* Docker Compose
-* Node.js
-* npm
-
-Check:
+From the repository root:
 
 ```bash
-java -version
-docker --version
-docker compose version
-node -v
-npm -v
+cd ~/dev/lebnani
+cp .env.example .env
+docker compose up --build
 ```
 
----
-
-## Run Backend
-
-Start PostgreSQL:
-
-```bash
-cd backend
-docker compose up -d
-```
-
-Run Spring Boot:
-
-```bash
-./mvnw spring-boot:run
-```
-
-Backend runs on:
+This starts:
 
 ```text
-http://localhost:8080
+PostgreSQL
+Spring Boot backend
+Angular frontend served by Nginx
 ```
 
-Health check:
+Open the app:
+
+```text
+http://localhost:4200
+```
+
+Backend health check:
 
 ```text
 http://localhost:8080/api/health
@@ -142,12 +75,75 @@ Swagger:
 http://localhost:8080/swagger-ui/index.html
 ```
 
----
-
-## Run Frontend
+Stop everything:
 
 ```bash
-cd frontend/lebnani-web
+docker compose down
+```
+
+Reset the database completely:
+
+```bash
+docker compose down -v
+docker compose up --build
+```
+
+---
+
+## Environment Variables
+
+Create a local `.env` file:
+
+```bash
+cp .env.example .env
+```
+
+Example:
+
+```env
+POSTGRES_DB=lebnani
+POSTGRES_USER=lebnani
+POSTGRES_PASSWORD=lebnani
+
+APP_JWT_SECRET=CHANGE_THIS_SECRET_CHANGE_THIS_SECRET_CHANGE_THIS_SECRET_123456
+APP_JWT_EXPIRATION_MINUTES=60
+```
+
+Do not commit `.env`.
+
+---
+
+## Local Development Mode
+
+Use this mode when actively coding.
+
+### Backend
+
+Start PostgreSQL only:
+
+```bash
+cd ~/dev/lebnani/backend
+docker compose up -d postgres
+```
+
+Run Spring Boot locally:
+
+```bash
+./mvnw spring-boot:run
+```
+
+Backend runs on:
+
+```text
+http://localhost:8080
+```
+
+### Frontend
+
+In another terminal:
+
+```bash
+cd ~/dev/lebnani/frontend/lebnani-web
 npm install
 npm start
 ```
@@ -158,22 +154,24 @@ Frontend runs on:
 http://localhost:4200
 ```
 
+In local development, Angular uses:
+
+```text
+proxy.conf.json
+```
+
+to forward `/api` calls to the backend.
+
 ---
 
 ## Test Account
 
-If needed, create a user:
+Create a user:
 
 ```bash
 curl -X POST http://localhost:8080/api/auth/register \
   -H "Content-Type: application/json" \
   -d '{"email":"test@test.com","password":"123456","displayName":"Henri"}'
-```
-
-Promote user to admin:
-
-```bash
-docker exec -it lebnani-postgres psql -U lebnani -d lebnani -c "UPDATE app_user SET role = 'ADMIN' WHERE email = 'test@test.com';"
 ```
 
 Login:
@@ -183,40 +181,107 @@ test@test.com
 123456
 ```
 
+Promote the user to admin:
+
+```bash
+docker exec -it lebnani-postgres psql -U lebnani -d lebnani -c "UPDATE app_user SET role = 'ADMIN' WHERE email = 'test@test.com';"
+```
+
+Then logout/login again.
+
 ---
 
-## Useful Backend Commands
+## Current Features
+
+### Authentication
+
+* Register
+* Login
+* JWT authentication
+* Role-based access:
+
+  * LEARNER
+  * CONTENT_EDITOR
+  * ADMIN
+
+### Learning
+
+* Browse courses
+* Browse units
+* Browse lessons
+* Start lesson attempts
+* Answer exercises
+* Multiple-choice exercises
+* Typed-answer exercises
+* Accepted answer variants
+* Complete lessons
+* Score calculation
+* XP tracking
+* Streak tracking
+* Course progress tracking
+
+### Review System
+
+* Wrong answers create review items
+* Review queue
+* Answer review items
+* Review items are scheduled or mastered
+
+### Admin
+
+* JSON content import
+* Content validation
+* Import run tracking
+* Admin-only frontend pages
+* Admin route protection
+
+### Frontend
+
+* Login page
+* Register page
+* Course dashboard
+* Lesson player
+* Lesson result screen
+* Review queue page
+* Admin JSON import page
+* Admin import history page
+* Route guards
+* JWT HTTP interceptor
+* Auth error handling
+
+---
+
+## Backend Commands
 
 Run tests:
 
 ```bash
-cd backend
+cd ~/dev/lebnani/backend
 ./mvnw test
 ```
 
-Reset database:
+Build backend Docker image:
 
 ```bash
-cd backend
-docker compose down -v
-docker compose up -d
-./mvnw spring-boot:run
+cd ~/dev/lebnani/backend
+docker build -t lebnani-api .
 ```
 
-View running containers:
+Run backend Docker Compose only:
 
 ```bash
-docker ps
+cd ~/dev/lebnani/backend
+docker compose up --build
 ```
 
 ---
 
-## Useful Frontend Commands
+## Frontend Commands
 
-Run frontend:
+Run frontend locally:
 
 ```bash
-cd frontend/lebnani-web
+cd ~/dev/lebnani/frontend/lebnani-web
 npm start
 ```
 
@@ -226,9 +291,15 @@ Build frontend:
 npm run build
 ```
 
+Build frontend Docker image:
+
+```bash
+docker build -t lebnani-web .
+```
+
 ---
 
-## Example Content Import
+## Content Import Example
 
 Go to:
 
@@ -272,6 +343,25 @@ Paste JSON like:
 
 ---
 
+## GitHub Actions CI
+
+The project has a CI workflow that runs on push and pull request.
+
+It checks:
+
+```text
+Backend tests
+Frontend build
+```
+
+Workflow file:
+
+```text
+.github/workflows/ci.yml
+```
+
+---
+
 ## Main Backend Concepts Used
 
 * Controller
@@ -302,16 +392,16 @@ Paste JSON like:
 
 ---
 
-## Next Roadmap
+## Roadmap
 
 * Add more real Lebanese Arabic content
 * Add lesson explanations
-* Improve answer feedback
-* Add admin import history UI
-* Add tests
-* Add GitHub Actions CI
-* Add Dockerfile
+* Improve answer feedback further
+* Add more backend tests
+* Add more frontend tests
 * Improve UI polish
+* Prepare production deployment
+* Add real production secrets
+* Add HTTPS/domain deployment
 * Add audio later
-
 
