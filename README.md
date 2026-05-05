@@ -1,3 +1,6 @@
+Replace your entire `README.md` with this:
+
+````md
 # Lebnani
 
 Lebnani is a full-stack web app for learning spoken Lebanese Arabic, starting with French-speaking learners.
@@ -32,14 +35,13 @@ lebnani/
 │       └── nginx.conf
 ├── docker-compose.yml
 ├── .env.example
+├── .env.production.example
 └── README.md
 ````
 
 ---
 
 ## Run Full Stack With Docker
-
-Use this mode when you want to run the whole app easily.
 
 From the repository root:
 
@@ -54,16 +56,16 @@ This starts:
 ```text
 PostgreSQL
 Spring Boot backend
-Angular frontend served by Nginx
+Angular frontend (served by Nginx)
 ```
 
-Open the app:
+Open:
 
 ```text
 http://localhost:4200
 ```
 
-Backend health check:
+Backend health:
 
 ```text
 http://localhost:8080/api/health
@@ -75,13 +77,13 @@ Swagger:
 http://localhost:8080/swagger-ui/index.html
 ```
 
-Stop everything:
+Stop:
 
 ```bash
 docker compose down
 ```
 
-Reset the database completely:
+Reset DB:
 
 ```bash
 docker compose down -v
@@ -92,11 +94,21 @@ docker compose up --build
 
 ## Environment Variables
 
-Create a local `.env` file:
+Create local config:
 
 ```bash
 cp .env.example .env
 ```
+
+For production-like setup:
+
+```bash
+cp .env.production.example .env
+```
+
+Then replace all placeholder values with real secure values.
+
+Never use the default development secrets in production.
 
 Example:
 
@@ -115,24 +127,15 @@ Do not commit `.env`.
 
 ## Local Development Mode
 
-Use this mode when actively coding.
-
 ### Backend
-
-Start PostgreSQL only:
 
 ```bash
 cd ~/dev/lebnani/backend
 docker compose up -d postgres
-```
-
-Run Spring Boot locally:
-
-```bash
 ./mvnw spring-boot:run
 ```
 
-Backend runs on:
+Backend:
 
 ```text
 http://localhost:8080
@@ -140,33 +143,25 @@ http://localhost:8080
 
 ### Frontend
 
-In another terminal:
-
 ```bash
 cd ~/dev/lebnani/frontend/lebnani-web
 npm install
 npm start
 ```
 
-Frontend runs on:
+Frontend:
 
 ```text
 http://localhost:4200
 ```
 
-In local development, Angular uses:
-
-```text
-proxy.conf.json
-```
-
-to forward `/api` calls to the backend.
+Angular uses `proxy.conf.json` to forward `/api`.
 
 ---
 
 ## Test Account
 
-Create a user:
+Create:
 
 ```bash
 curl -X POST http://localhost:8080/api/auth/register \
@@ -181,96 +176,61 @@ test@test.com
 123456
 ```
 
-Promote the user to admin:
+Promote to admin:
 
 ```bash
 docker exec -it lebnani-postgres psql -U lebnani -d lebnani -c "UPDATE app_user SET role = 'ADMIN' WHERE email = 'test@test.com';"
 ```
 
-Then logout/login again.
-
 ---
 
-## Current Features
+## Features
 
 ### Authentication
 
-* Register
-* Login
+* Register / Login
 * JWT authentication
-* Role-based access:
-
-  * LEARNER
-  * CONTENT_EDITOR
-  * ADMIN
+* Roles: LEARNER / CONTENT_EDITOR / ADMIN
 
 ### Learning
 
-* Browse courses
-* Browse units
-* Browse lessons
-* Start lesson attempts
-* Answer exercises
-* Multiple-choice exercises
-* Typed-answer exercises
+* Courses → Units → Lessons
+* Multiple-choice + typed answers
 * Accepted answer variants
-* Complete lessons
 * Score calculation
-* XP tracking
-* Streak tracking
-* Course progress tracking
+* XP system
+* Streak system
+* Progress tracking
 
 ### Review System
 
 * Wrong answers create review items
 * Review queue
-* Answer review items
-* Review items are scheduled or mastered
+* Spaced repetition logic
 
 ### Admin
 
 * JSON content import
-* Content validation
-* Import run tracking
-* Admin-only frontend pages
-* Admin route protection
+* Validation
+* Import history UI
 
 ### Frontend
 
-* Login page
-* Register page
-* Course dashboard
+* Dashboard
 * Lesson player
-* Lesson result screen
-* Review queue page
-* Admin JSON import page
-* Admin import history page
+* Review page
+* Admin pages
 * Route guards
-* JWT HTTP interceptor
-* Auth error handling
+* JWT interceptor
 
 ---
 
 ## Backend Commands
 
-Run tests:
-
 ```bash
-cd ~/dev/lebnani/backend
+cd backend
 ./mvnw test
-```
-
-Build backend Docker image:
-
-```bash
-cd ~/dev/lebnani/backend
 docker build -t lebnani-api .
-```
-
-Run backend Docker Compose only:
-
-```bash
-cd ~/dev/lebnani/backend
 docker compose up --build
 ```
 
@@ -278,28 +238,16 @@ docker compose up --build
 
 ## Frontend Commands
 
-Run frontend locally:
-
 ```bash
-cd ~/dev/lebnani/frontend/lebnani-web
+cd frontend/lebnani-web
 npm start
-```
-
-Build frontend:
-
-```bash
 npm run build
-```
-
-Build frontend Docker image:
-
-```bash
 docker build -t lebnani-web .
 ```
 
 ---
 
-## Content Import Example
+## Content Import
 
 Go to:
 
@@ -307,31 +255,27 @@ Go to:
 http://localhost:4200/admin/import
 ```
 
-Paste JSON like:
+Paste JSON:
 
 ```json
 {
   "units": [
     {
       "title": "Voyage",
-      "description": "Expressions utiles pour voyager.",
+      "description": "Expressions utiles.",
       "displayOrder": 100,
       "lessons": [
         {
-          "title": "À l'aéroport",
-          "description": "Premières phrases pour voyager.",
+          "title": "Aéroport",
+          "description": "Bases",
           "displayOrder": 1,
           "exercises": [
             {
               "type": "TYPE_ANSWER",
-              "promptFr": "Écris \"je veux aller\" en libanais.",
+              "promptFr": "Écris \"je veux aller\"",
               "correctAnswer": "baddi rou7",
               "displayOrder": 1,
-              "acceptedAnswers": [
-                "baddi rou7",
-                "badde rouh",
-                "bade rou7"
-              ]
+              "acceptedAnswers": ["baddi rou7", "badde rouh"]
             }
           ]
         }
@@ -343,65 +287,58 @@ Paste JSON like:
 
 ---
 
-## GitHub Actions CI
+## CI
 
-The project has a CI workflow that runs on push and pull request.
+GitHub Actions:
 
-It checks:
+```text
+.github/workflows/ci.yml
+```
+
+Runs:
 
 ```text
 Backend tests
 Frontend build
 ```
 
-Workflow file:
-
-```text
-.github/workflows/ci.yml
-```
-
 ---
 
-## Main Backend Concepts Used
+## Tech Concepts
 
-* Controller
-* Service
-* Repository
-* Entity
-* DTO
-* Validation
+### Backend
+
+* Spring Boot
+* REST API
+* JPA / Hibernate
+* Flyway
 * JWT
-* Spring Security
-* Flyway migrations
-* PostgreSQL persistence
-* Dockerized database
+* Validation
+* Docker
 
----
-
-## Main Frontend Concepts Used
+### Frontend
 
 * Angular standalone components
 * Routing
-* Route guards
 * Services
 * HTTP client
-* JWT interceptor
-* Local storage session
-* Template control flow
-* Basic responsive UI
+* Interceptors
+* State via services
 
 ---
 
 ## Roadmap
 
-* Add more real Lebanese Arabic content
-* Add lesson explanations
-* Improve answer feedback further
-* Add more backend tests
-* Add more frontend tests
-* Improve UI polish
-* Prepare production deployment
-* Add real production secrets
-* Add HTTPS/domain deployment
-* Add audio later
+* More content
+* Better UX
+* More tests
+* Deployment
+* HTTPS
+* Audio features
+
+````
+
+---
+
+
 
