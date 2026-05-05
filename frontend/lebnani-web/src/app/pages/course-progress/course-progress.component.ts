@@ -18,7 +18,12 @@ interface UserProgressResponse {
       <header class="topbar">
         <div>
           <h1>{{ progress?.courseTitle || 'Lebnani' }}</h1>
-          <p>Ton parcours de libanais parlé</p>
+          <p>
+        Ton parcours de libanais parlé
+        @if (currentUser) {
+            · {{ currentUser.displayName }} · {{ currentUser.role }}
+        }
+        </p>
         </div>
 
     <div class="topbar-actions">
@@ -298,6 +303,7 @@ export class CourseProgressComponent implements OnInit {
     progress: CourseProgressResponse | null = null;
     userProgress: UserProgressResponse | null = null;
 
+    currentUser: any = null;
     isAdmin = false;
     loading = true;
     errorMessage = '';
@@ -309,14 +315,15 @@ export class CourseProgressComponent implements OnInit {
     ) { }
 
     ngOnInit(): void {
-        if (!this.authService.isLoggedIn()) {
-            this.router.navigateByUrl('/login');
-            return;
-        }
+    if (!this.authService.isLoggedIn()) {
+        this.router.navigateByUrl('/login');
+        return;
+    }
 
-        this.isAdmin = this.authService.isAdmin();
+    this.currentUser = this.authService.getUser();
+    this.isAdmin = this.authService.isAdmin();
 
-        this.loadDashboard();
+    this.loadDashboard();
     }
 
     loadDashboard(): void {
