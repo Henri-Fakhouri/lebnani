@@ -1,21 +1,17 @@
-package com.henri.lebnani.auth;
+package com.henri.lebnani.user;
 
-public class LoginResponse {
+public class CurrentUserResponse {
 
     private final Long id;
     private final String email;
     private final String displayName;
     private final String role;
-    private final String accessToken;
-    private final String tokenType;
 
-    public LoginResponse(Long id, String email, String displayName, String role, String accessToken) {
+    public CurrentUserResponse(Long id, String email, String displayName, String role) {
         this.id = id;
         this.email = email;
         this.displayName = displayName;
         this.role = role;
-        this.accessToken = accessToken;
-        this.tokenType = "Bearer";
     }
 
     public Long getId() {
@@ -32,13 +28,5 @@ public class LoginResponse {
 
     public String getRole() {
         return role;
-    }
-
-    public String getAccessToken() {
-        return accessToken;
-    }
-
-    public String getTokenType() {
-        return tokenType;
     }
 }

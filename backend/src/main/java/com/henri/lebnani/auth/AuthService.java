@@ -1,6 +1,7 @@
 package com.henri.lebnani.auth;
 
 import com.henri.lebnani.common.BusinessException;
+import com.henri.lebnani.security.JwtService;
 import com.henri.lebnani.user.Role;
 import com.henri.lebnani.user.User;
 import com.henri.lebnani.user.UserRepository;
@@ -13,13 +14,16 @@ public class AuthService {
 
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
+    private final JwtService jwtService;
 
     public AuthService(
             UserRepository userRepository,
-            PasswordEncoder passwordEncoder
+            PasswordEncoder passwordEncoder,
+            JwtService jwtService
     ) {
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
+        this.jwtService = jwtService;
     }
 
     @Transactional
@@ -61,11 +65,14 @@ public class AuthService {
             throw new BusinessException("INVALID_CREDENTIALS", "Invalid email or password.");
         }
 
+        String accessToken = jwtService.generateToken(user);
+
         return new LoginResponse(
                 user.getId(),
                 user.getEmail(),
                 user.getDisplayName(),
-                user.getRole().name()
+                user.getRole().name(),
+                accessToken
         );
     }
 }
