@@ -2,10 +2,9 @@ import { Component, OnInit } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { marked } from 'marked';
-
 import { ApiService, LessonContentBlockResponse } from '../../core/api.service';
 import { AuthService } from '../../core/auth.service';
-import { MascotComponent } from '../../shared/mascot/mascot.component';
+import { MascotComponent, MascotMood } from '../../shared/mascot/mascot.component';
 
 @Component({
   selector: 'app-lesson',
@@ -14,73 +13,98 @@ import { MascotComponent } from '../../shared/mascot/mascot.component';
   template: `
     <main class="lesson-page">
       <div class="lesson-shell">
-        <div class="lesson-topbar">
-          <button type="button" class="back-button" (click)="backToCourse()">
+        <div class="lesson-flag"></div>
+
+        <header class="lesson-topbar">
+          <button type="button" class="ghost-button" (click)="backToCourse()">
             ← Parcours
           </button>
 
-          <div class="flag-stripe">
-            <span></span>
-            <span></span>
-            <span></span>
-          </div>
-        </div>
+          @if (!loading && !completed && !readingMode && exercise) {
+            <span class="chip">
+              Question {{ index + 1 }} / {{ exercises.length }}
+            </span>
+          }
 
-        @if (loading) {
-          <section class="state-card">
-            <app-mascot
-              size="md"
-              mood="thinking"
-              message="Je prépare ta leçon... yalla."
-            />
-          </section>
-        }
+          @if (!loading && readingMode && !emptyLesson && contentBlocks.length > 0) {
+            <span class="chip">
+              Cours
+            </span>
+          }
 
-        @if (!loading && emptyLesson) {
-          <section class="state-card">
-            <div>
-              <span class="lesson-chip">Leçon vide</span>
-              <h1>Leçon vide</h1>
-              <p>Cette leçon n’a pas encore d’exercices.</p>
+          @if (!loading && completed && result) {
+            <span class="chip chip-gold">
+              Leçon terminée
+            </span>
+          }
+        </header>
+
+        <section class="lesson-card">
+          @if (loading) {
+            <div class="state-panel">
+              <app-mascot
+                mood="thinking"
+                size="lg"
+                message="Je charge la leçon. Deux secondes."
+              />
             </div>
+          }
 
-            <app-mascot
-              size="md"
-              mood="sleepy"
-              message="Rien à pratiquer ici pour le moment."
-            />
+          @if (!loading && errorMessage) {
+            <div class="state-panel">
+              <app-mascot
+                mood="sad"
+                size="lg"
+                [message]="errorMessage"
+              />
 
-            <button type="button" class="primary-button" (click)="backToCourse()">
-              Retour au parcours
-            </button>
-          </section>
-        }
-
-        @if (!loading && !emptyLesson && readingMode && contentBlocks.length > 0) {
-          <section class="lesson-hero">
-            <div>
-              <span class="lesson-chip">Cours</span>
-              <h1>{{ lessonTitle }}</h1>
-              <p>
-                Lis l’explication, repère les mots importants, puis passe aux exercices.
-              </p>
+              <div class="state-actions">
+                <button type="button" class="primary-button" (click)="backToCourse()">
+                  Retour au parcours
+                </button>
+              </div>
             </div>
+          }
 
-            <app-mascot
-              size="md"
-              mood="happy"
-              message="D’abord on comprend. Ensuite on pratique."
-            />
-          </section>
+          @if (!loading && !errorMessage && emptyLesson) {
+            <div class="state-panel">
+              <app-mascot
+                mood="encouraging"
+                size="lg"
+                message="Cette leçon n’a pas encore d’exercices."
+              />
 
-          <section class="content-card">
+              <h1 class="state-title">Leçon vide</h1>
+
+              <div class="state-actions">
+                <button type="button" class="primary-button" (click)="backToCourse()">
+                  Retour au parcours
+                </button>
+              </div>
+            </div>
+          }
+
+          @if (!loading && !errorMessage && !emptyLesson && readingMode && contentBlocks.length > 0) {
+            <section class="reading-hero">
+              <div class="hero-copy">
+                <span class="eyebrow">Lecture rapide</span>
+                <h1>On lit d’abord, puis on pratique.</h1>
+                <p>
+                  Le but est simple : comprendre les bases avant de répondre.
+                </p>
+              </div>
+
+              <app-mascot
+                mood="proud"
+                size="lg"
+                message="Lis tranquillement. Après ça, on passe aux questions."
+              />
+            </section>
+
             <div class="course-content">
               @for (block of contentBlocks; track block.id) {
                 @if (block.type === 'HEADING') {
-                  <div class="content-heading-block">
-                    <span>Sujet</span>
-                    <h2>{{ block.content }}</h2>
-                  </div>
+                  <h2 class="content-heading">{{ block.content }}</h2>
                 }
 
                 @if (block.type === 'MARKDOWN') {
@@ -89,83 +113,40 @@ import { MascotComponent } from '../../shared/mascot/mascot.component';
 
                 @if (block.type === 'NOTE') {
                   <div class="note-block">
-                    <span>À retenir</span>
-                    <p>{{ block.content }}</p>
+                    {{ block.content }}
                   </div>
                 }
 
                 @if (block.type === 'EXAMPLE') {
                   <div class="example-block">
-                    <span>Exemple libanais</span>
-                    <p>{{ block.content }}</p>
+                    {{ block.content }}
                   </div>
                 }
               }
             </div>
 
-            <button type="button" class="primary-button next-button" (click)="startExercises()">
+            <button type="button" class="primary-button full-width next-button" (click)="startExercises()">
               Commencer les exercices
             </button>
-          </section>
-        }
+          }
 
-        @if (!loading && completed && result) {
-          <section class="result-card">
-            <div class="result-header">
-              <div>
-                <span class="lesson-chip success-chip">Leçon terminée</span>
-                <h1>Résultat</h1>
-                <p>{{ result.scorePercent }}% de réussite. Yalla, on avance.</p>
+          @if (!loading && !errorMessage && !completed && !readingMode && exercise) {
+            <section class="exercise-hero">
+              <div class="exercise-copy">
+                <span class="eyebrow">Exercice</span>
+                <h1>{{ exercise.promptFr }}</h1>
+
+                <div class="question-progress-bar">
+                  <div [style.width.%]="questionProgressPercent"></div>
+                </div>
               </div>
 
               <app-mascot
-                size="lg"
-                mood="proud"
-                [message]="result.xpAwarded === 0 ? 'Déjà validée, mais réviser reste utile.' : 'Bravo. XP gagnés.'"
+                [mood]="currentMascotMood"
+                size="md"
+                [message]="currentMascotMessage"
               />
-            </div>
-
-            <div class="result-grid">
-              <div>
-                <strong>{{ result.scorePercent }}%</strong>
-                <span>score</span>
-              </div>
-
-              <div>
-                <strong>{{ result.correctAnswers }}/{{ result.totalExercises }}</strong>
-                <span>bonnes réponses</span>
-              </div>
-
-              <div>
-                <strong>{{ result.xpAwarded }}</strong>
-                <span>XP gagnés</span>
-              </div>
-            </div>
-
-            @if (result.xpAwarded === 0) {
-              <p class="hint">
-                Cette leçon était déjà terminée, donc aucun XP supplémentaire n’a été accordé.
-              </p>
-            }
-
-            <button type="button" class="primary-button" (click)="backToCourse()">
-              Retour au parcours
-            </button>
-          </section>
-        }
-
-        @if (!loading && !completed && !readingMode && exercise) {
-          <section class="exercise-card">
-            <div class="exercise-header">
-              <div>
-                <span class="lesson-chip">Question {{ index + 1 }} / {{ exercises.length }}</span>
-                <h1>{{ exercise.promptFr }}</h1>
-              </div>
-
-              <div class="question-progress-bar">
-                <div [style.width.%]="((index + 1) * 100) / exercises.length"></div>
-              </div>
-            </div>
+            </section>
 
             @if (exercise.type === 'MULTIPLE_CHOICE') {
               <div class="options">
@@ -207,178 +188,277 @@ import { MascotComponent } from '../../shared/mascot/mascot.component';
 
             @if (feedback) {
               <div class="feedback-panel" [class.correct]="lastCorrect" [class.wrong]="!lastCorrect">
-                <app-mascot
-                  size="sm"
-                  [mood]="lastCorrect ? 'excited' : 'thinking'"
-                  [message]="feedback"
-                />
+                <div class="feedback-head">
+                  <app-mascot
+                    [mood]="feedbackMascotMood"
+                    size="sm"
+                    [message]="feedbackMascotMessage"
+                  />
+                </div>
 
-                <button type="button" class="primary-button next-button" (click)="next()">
+                <p class="feedback-text">
+                  {{ feedback }}
+                </p>
+
+                <button type="button" class="primary-button full-width next-button" (click)="next()">
                   Continuer
                 </button>
               </div>
             }
-          </section>
-        }
+          }
 
-        @if (!loading && errorMessage) {
-          <section class="error-card">
-            <app-mascot
-              size="sm"
-              mood="wrong"
-              [message]="errorMessage"
-            />
+          @if (!loading && !errorMessage && completed && result) {
+            <section class="result-hero">
+              <div class="hero-copy">
+                <span class="eyebrow">Résultat</span>
+                <h1>Leçon terminée</h1>
+                <p>
+                  Voilà le résultat de cette tentative.
+                </p>
+              </div>
 
-            <button type="button" class="primary-button" (click)="backToCourse()">
+              <app-mascot
+                [mood]="resultMascotMood"
+                size="lg"
+                [message]="resultMascotMessage"
+              />
+            </section>
+
+            <div class="result-grid">
+              <div class="result-item">
+                <strong>{{ result.scorePercent }}%</strong>
+                <span>score</span>
+              </div>
+
+              <div class="result-item">
+                <strong>{{ result.correctAnswers }}/{{ result.totalExercises }}</strong>
+                <span>bonnes réponses</span>
+              </div>
+
+              <div class="result-item">
+                <strong>{{ result.xpAwarded }}</strong>
+                <span>XP gagnés</span>
+              </div>
+            </div>
+
+            @if (result.xpAwarded === 0) {
+              <p class="hint">
+                Cette leçon était déjà terminée, donc aucun XP supplémentaire n’a été accordé.
+              </p>
+            }
+
+            <button type="button" class="primary-button full-width" (click)="backToCourse()">
               Retour au parcours
             </button>
-          </section>
-        }
+          }
+        </section>
       </div>
     </main>
   `,
   styles: [`
     .lesson-page {
       min-height: 100vh;
-      padding: 28px 18px 48px;
-      color: var(--text-main);
+      padding: 32px 20px;
       background:
-        radial-gradient(circle at 10% 8%, rgba(214, 40, 40, 0.10), transparent 260px),
-        radial-gradient(circle at 90% 12%, rgba(31, 95, 67, 0.14), transparent 300px),
-        linear-gradient(135deg, var(--cream), #fffaf2);
+        radial-gradient(circle at 12% 10%, rgba(214, 40, 40, 0.08), transparent 28%),
+        radial-gradient(circle at 88% 18%, rgba(31, 95, 67, 0.12), transparent 30%),
+        linear-gradient(135deg, var(--cream, #f8f4ec), #fffaf2);
+      color: var(--text-main, #1f2933);
     }
 
     .lesson-shell {
-      width: min(100%, 920px);
+      width: min(100%, 980px);
       margin: 0 auto;
+    }
+
+    .lesson-flag {
+      position: relative;
+      height: 8px;
+      margin-bottom: 18px;
+      border-radius: 999px;
+      overflow: hidden;
+      background:
+        linear-gradient(
+          90deg,
+          var(--lb-red, #d62828) 0 28%,
+          var(--white, #ffffff) 28% 72%,
+          var(--lb-red, #d62828) 72% 100%
+        );
+    }
+
+    .lesson-flag::after {
+      content: "";
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      width: 14px;
+      height: 10px;
+      transform: translate(-50%, -50%);
+      background: var(--cedar-green, #1f5f43);
+      clip-path: polygon(
+        50% 0%,
+        76% 24%,
+        62% 24%,
+        90% 50%,
+        70% 50%,
+        100% 76%,
+        58% 76%,
+        58% 100%,
+        42% 100%,
+        42% 76%,
+        0% 76%,
+        30% 50%,
+        10% 50%,
+        38% 24%,
+        24% 24%
+      );
     }
 
     .lesson-topbar {
       display: flex;
       justify-content: space-between;
-      gap: 16px;
+      gap: 12px;
       align-items: center;
       margin-bottom: 18px;
+      flex-wrap: wrap;
     }
 
-    .back-button {
+    .lesson-card {
+      background: rgba(255, 255, 255, 0.94);
+      border: 1px solid var(--border-soft, #e8ded0);
+      border-radius: 28px;
+      padding: 28px;
+      box-shadow: var(--shadow-soft, 0 14px 35px rgba(31, 41, 51, 0.08));
+    }
+
+    .ghost-button,
+    .primary-button {
       border: 0;
       border-radius: 999px;
-      padding: 10px 15px;
-      color: var(--cedar-green-dark);
-      background: var(--cedar-green-soft);
-      font-weight: 900;
+      padding: 12px 18px;
+      font-weight: 800;
+      font-size: 15px;
+      transition:
+        transform 0.14s ease,
+        box-shadow 0.14s ease,
+        background 0.14s ease,
+        color 0.14s ease;
     }
 
-    .flag-stripe {
-      display: grid;
-      grid-template-columns: 1fr 1.4fr 1fr;
-      width: min(60vw, 380px);
-      height: 8px;
-      overflow: hidden;
-      border-radius: 999px;
-      box-shadow: 0 8px 18px rgba(31, 41, 51, 0.08);
+    .ghost-button {
+      background: var(--cedar-green-soft, #dceee3);
+      color: var(--cedar-green-dark, #143d2b);
     }
 
-    .flag-stripe span:nth-child(1) {
-      background: var(--lb-red);
+    .primary-button {
+      background: var(--cedar-green, #1f5f43);
+      color: white;
+      box-shadow: 0 10px 24px rgba(31, 95, 67, 0.24);
     }
 
-    .flag-stripe span:nth-child(2) {
-      background: var(--white);
+    .ghost-button:hover,
+    .primary-button:hover {
+      transform: translateY(-1px);
     }
 
-    .flag-stripe span:nth-child(3) {
-      background: var(--cedar-green);
+    .primary-button:disabled {
+      opacity: 0.55;
+      cursor: default;
     }
 
-    .lesson-hero,
-    .content-card,
-    .exercise-card,
-    .result-card,
-    .state-card,
-    .error-card {
-      border: 1px solid var(--border-soft);
-      border-radius: 32px;
-      background: rgba(255, 255, 255, 0.95);
-      box-shadow: var(--shadow-lifted);
+    .full-width {
+      width: 100%;
     }
 
-    .lesson-hero {
-      display: grid;
-      grid-template-columns: 1fr auto;
-      gap: 28px;
-      align-items: center;
-      margin-bottom: 18px;
-      padding: 30px;
-      overflow: hidden;
-      position: relative;
-    }
-
-    .lesson-hero::before {
-      content: "";
-      position: absolute;
-      right: -60px;
-      top: -70px;
-      width: 220px;
-      height: 220px;
-      border-radius: 50%;
-      background: rgba(31, 95, 67, 0.08);
-    }
-
-    .lesson-hero > * {
-      position: relative;
-      z-index: 1;
-    }
-
-    .lesson-chip {
+    .chip {
       display: inline-flex;
-      width: fit-content;
       align-items: center;
-      gap: 8px;
-      padding: 7px 12px;
+      gap: 6px;
       border-radius: 999px;
-      color: var(--cedar-green-dark);
-      background: var(--cedar-green-soft);
+      padding: 6px 10px;
+      background: var(--cedar-green-soft, #dceee3);
+      color: var(--cedar-green-dark, #143d2b);
       font-size: 13px;
-      font-weight: 950;
+      font-weight: 800;
     }
 
-    .success-chip {
-      color: #6f4c00;
+    .chip-gold {
       background: #fff1c9;
+      color: #6f4c00;
     }
 
-    h1,
-    h2 {
-      margin: 0;
-      color: var(--text-main);
-      font-weight: 950;
-      letter-spacing: -0.05em;
+    .state-panel,
+    .reading-hero,
+    .exercise-hero,
+    .result-hero {
+      display: grid;
+      gap: 20px;
+      align-items: center;
+    }
+
+    .reading-hero,
+    .exercise-hero,
+    .result-hero {
+      grid-template-columns: minmax(0, 1fr) auto;
+      margin-bottom: 24px;
+    }
+
+    .hero-copy h1,
+    .exercise-copy h1 {
+      margin: 8px 0 12px;
+      font-size: clamp(32px, 4vw, 48px);
       line-height: 0.95;
+      letter-spacing: -0.04em;
     }
 
-    .lesson-hero h1 {
-      max-width: 560px;
-      margin-top: 14px;
-      font-size: clamp(42px, 6vw, 68px);
+    .hero-copy p,
+    .exercise-copy p,
+    .state-panel p {
+      margin: 0;
+      color: var(--text-muted, #65726a);
+      font-weight: 600;
+      line-height: 1.5;
     }
 
-    .lesson-hero p {
-      max-width: 540px;
-      margin: 16px 0 0;
-      color: var(--text-muted);
-      font-size: 17px;
-      font-weight: 650;
-      line-height: 1.55;
+    .eyebrow {
+      display: inline-flex;
+      align-items: center;
+      width: fit-content;
+      border-radius: 999px;
+      padding: 6px 10px;
+      background: var(--cedar-green-soft, #dceee3);
+      color: var(--cedar-green-dark, #143d2b);
+      font-size: 13px;
+      font-weight: 900;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
     }
 
-    .content-card,
-    .exercise-card,
-    .result-card,
-    .state-card,
-    .error-card {
-      padding: 28px;
+    .state-title {
+      margin: 0;
+      font-size: 32px;
+      line-height: 1;
+      letter-spacing: -0.04em;
+    }
+
+    .state-actions {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    .question-progress-bar {
+      height: 12px;
+      margin-top: 16px;
+      border-radius: 999px;
+      overflow: hidden;
+      background: var(--cream-2, #efe7da);
+    }
+
+    .question-progress-bar div {
+      height: 100%;
+      border-radius: inherit;
+      background: linear-gradient(90deg, var(--cedar-green, #1f5f43), #2f8b61);
     }
 
     .course-content {
@@ -387,38 +467,15 @@ import { MascotComponent } from '../../shared/mascot/mascot.component';
       margin-bottom: 24px;
     }
 
-    .content-heading-block {
-      padding: 20px;
-      border-radius: 24px;
-      background:
-        linear-gradient(135deg, var(--cedar-green-soft), rgba(255, 255, 255, 0.88));
-      border: 1px solid rgba(31, 95, 67, 0.15);
-    }
-
-    .content-heading-block span,
-    .note-block span,
-    .example-block span {
-      display: inline-flex;
-      margin-bottom: 10px;
-      color: var(--cedar-green-dark);
-      font-size: 12px;
-      font-weight: 950;
-      text-transform: uppercase;
-      letter-spacing: 0.08em;
-    }
-
-    .content-heading-block h2 {
-      font-size: 34px;
+    .content-heading {
+      margin: 0;
+      font-size: 28px;
+      line-height: 1.05;
     }
 
     .markdown-block {
-      padding: 22px;
-      border: 1px solid var(--border-soft);
-      border-radius: 24px;
-      background: #fffdf8;
       color: #2d3a30;
-      font-size: 16px;
-      line-height: 1.7;
+      line-height: 1.65;
     }
 
     :host ::ng-deep .markdown-block p {
@@ -426,106 +483,66 @@ import { MascotComponent } from '../../shared/mascot/mascot.component';
       margin: 0 0 14px;
     }
 
-    :host ::ng-deep .markdown-block p:last-child {
-      margin-bottom: 0;
-    }
-
     :host ::ng-deep .markdown-block strong {
-      color: var(--lb-red-dark);
-      font-weight: 950;
+      color: #18251d;
+      font-weight: 800;
     }
 
     :host ::ng-deep .markdown-block table {
       width: 100%;
-      border-collapse: separate;
-      border-spacing: 0;
+      border-collapse: collapse;
       margin: 16px 0;
+      border-radius: 12px;
       overflow: hidden;
-      border: 1px solid var(--border-soft);
-      border-radius: 16px;
+      border: 1px solid #e7e1d6;
     }
 
     :host ::ng-deep .markdown-block th,
     :host ::ng-deep .markdown-block td {
-      padding: 12px 14px;
-      border-bottom: 1px solid var(--border-soft);
+      border: 1px solid #e7e1d6;
+      padding: 10px 12px;
       text-align: left;
     }
 
     :host ::ng-deep .markdown-block th {
-      color: var(--cedar-green-dark);
-      background: var(--cedar-green-soft);
-      font-weight: 950;
+      background: #eef4ed;
+      color: #253d2c;
+      font-weight: 800;
     }
 
     :host ::ng-deep .markdown-block td {
-      color: var(--text-main);
-      background: var(--white);
-      font-weight: 650;
+      background: #fffdf8;
+      color: #18251d;
     }
 
-    :host ::ng-deep .markdown-block tr:last-child td {
-      border-bottom: 0;
+    :host ::ng-deep .markdown-block ul,
+    :host ::ng-deep .markdown-block ol {
+      margin: 0 0 14px 22px;
+      padding: 0;
+    }
+
+    :host ::ng-deep .markdown-block li {
+      margin-bottom: 6px;
     }
 
     .note-block,
     .example-block {
-      border-radius: 22px;
-      padding: 18px;
-      line-height: 1.5;
-      font-weight: 750;
+      border-radius: 18px;
+      padding: 16px;
+      line-height: 1.55;
+      font-weight: 700;
     }
 
     .note-block {
-      color: #6a5320;
       background: #fff7df;
-      border: 1px solid rgba(244, 185, 66, 0.45);
+      color: #6a5320;
+      border: 1px solid #f3e1a5;
     }
 
     .example-block {
-      color: var(--cedar-green-dark);
       background: #f3faf3;
-      border: 1px solid rgba(31, 95, 67, 0.18);
-    }
-
-    .note-block p,
-    .example-block p {
-      margin: 0;
-    }
-
-    .exercise-card {
-      width: min(100%, 760px);
-      margin: 0 auto;
-    }
-
-    .exercise-header {
-      display: grid;
-      gap: 18px;
-      margin-bottom: 24px;
-    }
-
-    .exercise-header h1 {
-      margin-top: 16px;
-      font-size: clamp(30px, 4vw, 44px);
-      line-height: 1.05;
-    }
-
-    .question-progress-bar {
-      height: 12px;
-      overflow: hidden;
-      border-radius: 999px;
-      background: var(--cream-2);
-    }
-
-    .question-progress-bar div {
-      height: 100%;
-      border-radius: inherit;
-      background:
-        linear-gradient(
-          90deg,
-          var(--lb-red) 0 20%,
-          var(--cedar-green) 20% 100%
-        );
+      color: #253d2c;
+      border: 1px solid #d7ebd7;
     }
 
     .options {
@@ -533,83 +550,54 @@ import { MascotComponent } from '../../shared/mascot/mascot.component';
       gap: 12px;
     }
 
-    button {
+    .option-button {
+      width: 100%;
+      border: 2px solid #e7e1d6;
+      border-radius: 18px;
+      padding: 16px 18px;
+      background: #fffdf8;
+      color: #18251d;
+      text-align: left;
+      font-weight: 800;
+      font-size: 15px;
       transition:
         background 0.14s ease,
-        color 0.14s ease,
         border-color 0.14s ease,
         transform 0.14s ease,
         box-shadow 0.14s ease;
     }
 
-    button:not(:disabled):hover {
-      transform: translateY(-1px);
-    }
-
-    button:disabled {
-      cursor: not-allowed;
-    }
-
-    .primary-button {
-      border: 0;
-      border-radius: 999px;
-      padding: 14px 20px;
-      color: var(--white);
-      background: var(--cedar-green-dark);
-      box-shadow: 0 12px 24px rgba(20, 61, 43, 0.20);
-      font-weight: 950;
-    }
-
-    .primary-button:disabled {
-      opacity: 0.55;
-    }
-
-    .primary-button:not(:disabled):hover {
-      background: var(--cedar-green);
-    }
-
-    .option-button {
-      width: 100%;
-      border: 2px solid var(--border-soft);
-      border-radius: 20px;
-      padding: 16px 18px;
-      color: var(--text-main);
-      background: #fffdf8;
-      box-shadow: none;
-      text-align: left;
-      font-size: 16px;
-      font-weight: 900;
-    }
-
     .option-button:not(:disabled):hover {
-      border-color: rgba(31, 95, 67, 0.38);
+      transform: translateY(-1px);
+      border-color: var(--cedar-green, #1f5f43);
       background: #f8fbf6;
-      box-shadow: 0 10px 20px rgba(31, 41, 51, 0.08);
+      box-shadow: 0 8px 18px rgba(0, 0, 0, 0.06);
     }
 
     .option-button.selected {
-      border-color: var(--cedar-green);
-      background: var(--cedar-green-soft);
+      border-color: var(--cedar-green, #1f5f43);
+      background: #eef4ed;
     }
 
     .option-button.correct-selected {
-      border-color: var(--cedar-green);
-      background: var(--cedar-green);
+      border-color: #1b7f3a;
+      background: #1b7f3a;
       color: white;
-      box-shadow: 0 12px 24px rgba(31, 95, 67, 0.22);
+      box-shadow: 0 8px 18px rgba(27, 127, 58, 0.18);
     }
 
     .option-button.wrong-selected {
-      border-color: var(--lb-red);
-      background: var(--lb-red);
+      border-color: #b00020;
+      background: #b00020;
       color: white;
-      box-shadow: 0 12px 24px rgba(214, 40, 40, 0.20);
+      box-shadow: 0 8px 18px rgba(176, 0, 32, 0.18);
     }
 
     .option-button:disabled:not(.correct-selected):not(.wrong-selected) {
-      opacity: 0.48;
+      opacity: 0.55;
       background: #f4f1ea;
-      color: var(--text-muted);
+      color: #667064;
+      border-color: #e7e1d6;
     }
 
     .typed-answer {
@@ -617,167 +605,100 @@ import { MascotComponent } from '../../shared/mascot/mascot.component';
       gap: 12px;
     }
 
-    input {
-      width: 100%;
-      padding: 16px;
-      border: 2px solid var(--border-soft);
-      border-radius: 20px;
-      background: #fffdf8;
-      color: var(--text-main);
-      font-size: 18px;
-      font-weight: 800;
-      outline: none;
+    .typed-answer input {
+      padding: 14px;
+      border: 1px solid #ddd;
+      border-radius: 16px;
+      font-size: 16px;
+      background: white;
     }
 
-    input:focus {
-      border-color: var(--cedar-green);
-      box-shadow: 0 0 0 4px rgba(31, 95, 67, 0.10);
-    }
-
-    input:disabled {
+    .typed-answer input:disabled {
       background: #f4f1ea;
-      color: var(--text-muted);
+      color: #667064;
     }
 
     .feedback-panel {
-      display: grid;
-      gap: 16px;
-      margin-top: 20px;
-      padding: 18px;
-      border-radius: 24px;
-      border: 1px solid var(--border-soft);
-    }
-
-    .feedback-panel.correct {
+      margin-top: 18px;
+      border-radius: 22px;
+      padding: 16px;
+      border: 1px solid #d7ebd7;
       background: #f3faf3;
-      border-color: rgba(31, 95, 67, 0.22);
     }
 
     .feedback-panel.wrong {
-      background: #fff1f1;
-      border-color: rgba(214, 40, 40, 0.20);
+      border-color: #ffd0d0;
+      background: #fff4f4;
     }
 
-    .next-button {
-      width: 100%;
+    .feedback-head {
+      margin-bottom: 12px;
     }
 
-    .result-header {
-      display: grid;
-      grid-template-columns: 1fr auto;
-      gap: 24px;
-      align-items: center;
-      margin-bottom: 24px;
-    }
-
-    .result-header h1 {
-      margin-top: 16px;
-      color: var(--cedar-green);
-      font-size: clamp(46px, 7vw, 78px);
-    }
-
-    .result-header p {
-      max-width: 520px;
-      margin: 12px 0 0;
-      color: var(--text-muted);
-      font-size: 17px;
-      font-weight: 700;
-      line-height: 1.5;
+    .feedback-text {
+      margin: 0 0 14px;
+      font-weight: 800;
+      line-height: 1.45;
+      color: #1f2933;
     }
 
     .result-grid {
       display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap: 12px;
-      margin-bottom: 18px;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 14px;
+      margin-bottom: 20px;
     }
 
-    .result-grid div {
-      padding: 18px;
-      border: 1px solid var(--border-soft);
-      border-radius: 22px;
+    .result-item {
+      border: 1px solid #eee8dc;
       background: #fffdf8;
+      border-radius: 18px;
+      padding: 18px;
     }
 
-    .result-grid strong {
+    .result-item strong {
       display: block;
-      color: var(--cedar-green-dark);
-      font-size: 34px;
-      font-weight: 950;
-      letter-spacing: -0.04em;
+      font-size: 30px;
+      color: var(--cedar-green, #1f5f43);
     }
 
-    .result-grid span {
+    .result-item span {
       display: block;
       margin-top: 4px;
-      color: var(--text-muted);
-      font-weight: 800;
-    }
-
-    .hint {
-      padding: 14px 16px;
-      border-radius: 18px;
-      color: #6a5320;
-      background: #fff7df;
-      font-weight: 750;
-    }
-
-    .state-card,
-    .error-card {
-      display: grid;
-      gap: 18px;
-      justify-items: start;
-    }
-
-    .state-card h1 {
-      margin: 12px 0 8px;
-      font-size: 38px;
-    }
-
-    .state-card p {
-      margin: 0;
-      color: var(--text-muted);
+      color: var(--text-muted, #65726a);
+      font-size: 14px;
       font-weight: 700;
     }
 
-    .error-card {
-      margin-top: 18px;
-      border-color: rgba(214, 40, 40, 0.25);
-      background: var(--lb-red-soft);
+    .hint {
+      margin: 0 0 18px;
+      background: #fff7df;
+      color: #6a5320;
+      border: 1px solid #f3e1a5;
+      border-radius: 16px;
+      padding: 12px 14px;
+      font-weight: 700;
     }
 
-    @media (max-width: 780px) {
-      .lesson-hero,
-      .result-header {
+    @media (max-width: 900px) {
+      .reading-hero,
+      .exercise-hero,
+      .result-hero {
         grid-template-columns: 1fr;
+      }
+    }
+
+    @media (max-width: 680px) {
+      .lesson-page {
+        padding: 20px 14px;
+      }
+
+      .lesson-card {
+        padding: 20px;
       }
 
       .result-grid {
         grid-template-columns: 1fr;
-      }
-    }
-
-    @media (max-width: 560px) {
-      .lesson-page {
-        padding: 18px 12px 34px;
-      }
-
-      .lesson-hero,
-      .content-card,
-      .exercise-card,
-      .result-card,
-      .state-card,
-      .error-card {
-        border-radius: 24px;
-        padding: 20px;
-      }
-
-      .lesson-hero h1 {
-        font-size: 42px;
-      }
-
-      .flag-stripe {
-        width: 150px;
       }
     }
   `]
@@ -811,10 +732,6 @@ export class LessonComponent implements OnInit {
     private readonly router: Router
   ) {}
 
-  get lessonTitle(): string {
-    return this.contentBlocks.find(block => block.type === 'HEADING')?.content ?? `Leçon ${this.lessonId}`;
-  }
-
   ngOnInit(): void {
     if (!this.auth.isLoggedIn()) {
       this.router.navigateByUrl('/login');
@@ -833,6 +750,108 @@ export class LessonComponent implements OnInit {
         this.errorMessage = 'Impossible de charger le contenu de la leçon.';
       }
     });
+  }
+
+  get questionProgressPercent(): number {
+    if (this.exercises.length === 0) {
+      return 0;
+    }
+
+    return ((this.index + 1) * 100) / this.exercises.length;
+  }
+
+   get currentMascotMood(): MascotMood {
+    if (!this.feedback) {
+      if (this.exercise?.type === 'TYPE_ANSWER') {
+        return 'thinking';
+      }
+
+      return 'neutral';
+    }
+
+    if (!this.lastCorrect) {
+      return 'thinking';
+    }
+
+    if (this.isLastQuestion) {
+      return 'celebrate';
+    }
+
+    return 'happy';
+  }
+
+    get currentMascotMessage(): string {
+    if (!this.feedback) {
+      if (this.exercise?.type === 'TYPE_ANSWER') {
+        return 'Écris ce que tu entends ou ce que tu comprends.';
+      }
+
+      return 'Choisis la bonne réponse.';
+    }
+
+    if (!this.lastCorrect) {
+      return 'Presque. Regarde bien et réessaie au prochain.';
+    }
+
+    if (this.isLastQuestion) {
+      return 'Nickel. Encore une et on boucle.';
+    }
+
+    return 'Bien joué. Continue comme ça.';
+  }
+
+    get feedbackMascotMood(): MascotMood {
+    if (!this.lastCorrect) {
+      return 'sad';
+    }
+
+    if (this.isLastQuestion) {
+      return 'celebrate';
+    }
+
+    return 'happy';
+  }
+
+  get feedbackMascotMessage(): string {
+    return this.lastCorrect
+      ? 'Sah. Bonne réponse.'
+      : 'Oops. Ce n’était pas ça.';
+  }
+
+  get resultMascotMood(): MascotMood {
+    if (!this.result) {
+      return 'proud';
+    }
+
+    if (this.result.scorePercent === 100) {
+      return 'celebrate';
+    }
+
+    if (this.result.scorePercent >= 70) {
+      return 'proud';
+    }
+
+    return 'encouraging';
+  }
+
+  get resultMascotMessage(): string {
+    if (!this.result) {
+      return 'Leçon terminée.';
+    }
+
+    if (this.result.scorePercent === 100) {
+      return 'Parfait. Là c’est propre.';
+    }
+
+    if (this.result.scorePercent >= 70) {
+      return 'C’est bien. La base est là.';
+    }
+
+    return 'On continue. La prochaine sera meilleure.';
+  }
+
+  get isLastQuestion(): boolean {
+    return this.index === this.exercises.length - 1;
   }
 
   loadExercises(): void {

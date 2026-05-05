@@ -1,23 +1,9 @@
 import { Component, OnInit } from '@angular/core';
-import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
-
+import { FormsModule } from '@angular/forms';
 import { ApiService, ReviewItemResponse } from '../../core/api.service';
 import { AuthService } from '../../core/auth.service';
-import { MascotComponent } from '../../shared/mascot/mascot.component';
-
-interface ReviewAnswerResponse {
-  reviewItemId: number;
-  exerciseId: number;
-  submittedAnswer: string;
-  normalizedAnswer: string;
-  correct: boolean;
-  expectedAnswer: string;
-  status: string;
-  failureCount: number;
-  successCount: number;
-  nextReviewAt: string;
-}
+import { MascotComponent, MascotMood } from '../../shared/mascot/mascot.component';
 
 @Component({
   selector: 'app-review',
@@ -26,154 +12,112 @@ interface ReviewAnswerResponse {
   template: `
     <main class="review-page">
       <div class="review-shell">
-        <div class="review-topbar">
-          <button type="button" class="back-button" (click)="backToCourse()">
+        <div class="review-flag"></div>
+
+        <header class="review-topbar">
+          <button type="button" class="ghost-button" (click)="backToCourse()">
             ← Parcours
           </button>
 
-          <div class="flag-stripe">
-            <span></span>
-            <span></span>
-            <span></span>
-          </div>
-        </div>
+          @if (!loading && currentItem) {
+            <span class="chip">
+              Carte {{ index + 1 }} / {{ reviewItems.length }}
+            </span>
+          }
+        </header>
 
-        @if (loading) {
-          <section class="state-card">
-            <app-mascot
-              size="md"
-              mood="thinking"
-              message="Je prépare tes révisions du jour..."
-            />
-          </section>
-        }
-
-        @if (!loading && errorMessage) {
-          <section class="state-card error-card">
-            <app-mascot
-              size="md"
-              mood="wrong"
-              [message]="errorMessage"
-            />
-
-            <button type="button" class="primary-button" (click)="backToCourse()">
-              Retour au parcours
-            </button>
-          </section>
-        }
-
-        @if (!loading && !errorMessage && queue.length === 0) {
-          <section class="empty-card">
-            <div>
-              <span class="review-chip success-chip">Révisions terminées</span>
-              <h1>Queue vide</h1>
-              <p>
-                Khalas. Tu n’as rien à réviser pour le moment.
-              </p>
+        <section class="review-card">
+          @if (loading) {
+            <div class="state-panel">
+              <app-mascot
+                mood="thinking"
+                size="lg"
+                message="Je prépare la révision du jour."
+              />
             </div>
+          }
 
-            <app-mascot
-              size="lg"
-              mood="proud"
-              message="Propre. Reviens plus tard pour garder ton libanais vivant."
-            />
+          @if (!loading && errorMessage) {
+            <div class="state-panel">
+              <app-mascot
+                mood="sad"
+                size="lg"
+                [message]="errorMessage"
+              />
 
-            <button type="button" class="primary-button" (click)="backToCourse()">
-              Retour au parcours
-            </button>
-          </section>
-        }
-
-        @if (!loading && !errorMessage && finished) {
-          <section class="empty-card">
-            <div>
-              <span class="review-chip success-chip">Session terminée</span>
-              <h1>Révisions faites</h1>
-              <p>
-                Tu as terminé cette session. Les mots difficiles reviendront plus tard.
-              </p>
+              <button type="button" class="primary-button" (click)="backToCourse()">
+                Retour au parcours
+              </button>
             </div>
+          }
 
-            <app-mascot
-              size="lg"
-              mood="excited"
-              message="Yalla. Bonne session."
-            />
+          @if (!loading && !errorMessage && reviewItems.length === 0) {
+            <div class="state-panel">
+              <app-mascot
+                mood="proud"
+                size="lg"
+                message="Aucune révision pour le moment. C’est propre."
+              />
 
-            <button type="button" class="primary-button" (click)="backToCourse()">
-              Retour au parcours
-            </button>
-          </section>
-        }
-
-        @if (!loading && !errorMessage && !finished && currentItem) {
-          <section class="review-hero">
-            <div>
-              <span class="review-chip">Révisions</span>
-              <h1>Révision du jour</h1>
-              <p>
-                Les erreurs reviennent ici jusqu’à ce qu’elles soient maîtrisées.
-              </p>
+              <button type="button" class="primary-button" (click)="backToCourse()">
+                Retour au parcours
+              </button>
             </div>
+          }
 
-            <app-mascot
-              size="md"
-              mood="happy"
-              [message]="reviewMascotMessage()"
-            />
-          </section>
+          @if (!loading && !errorMessage && currentItem) {
+            <section class="review-hero">
+              <div class="hero-copy">
+                <span class="eyebrow">Révision du jour</span>
+                <h1>{{ currentItem.promptFr }}</h1>
 
-          <section class="review-card">
-            <div class="review-header">
-              <div>
-                <span class="review-chip">
-                  Carte {{ currentIndex + 1 }} / {{ queue.length }}
-                </span>
+                <div class="review-progress-bar">
+                  <div [style.width.%]="progressPercent"></div>
+                </div>
 
-                <h2>{{ currentItem.promptFr }}</h2>
+                <div class="meta-row">
+                  <span class="mini-chip">Échecs : {{ currentItem.failureCount }}</span>
+                  <span class="mini-chip">Réussites : {{ currentItem.successCount }}</span>
+                  <span class="mini-chip">Status : {{ currentItem.status }}</span>
+                </div>
               </div>
 
-              <div class="review-progress-bar">
-                <div [style.width.%]="reviewProgressPercent()"></div>
-              </div>
-            </div>
+              <app-mascot
+                [mood]="currentMascotMood"
+                size="md"
+                [message]="currentMascotMessage"
+              />
+            </section>
 
-            <div class="review-meta">
-              <span>Échecs : {{ currentItem.failureCount }}</span>
-              <span>Réussites : {{ currentItem.successCount }}</span>
-              <span>Status : {{ currentItem.status }}</span>
-            </div>
-
-            @if (hasOptions()) {
+            @if (currentItem.exerciseType === 'MULTIPLE_CHOICE') {
               <div class="options">
                 @for (option of currentItem.options; track option.id) {
                   <button
                     type="button"
                     class="option-button"
-                    [class.selected]="selectedAnswer === option.text"
-                    [class.correct-selected]="selectedAnswer === option.text && feedback && lastCorrect"
-                    [class.wrong-selected]="selectedAnswer === option.text && feedback && !lastCorrect"
-                    [disabled]="answering || !!feedback"
-                    (click)="answerWithOption(option.text)"
+                    [disabled]="answering"
+                    (click)="answer(option.text)"
                   >
                     {{ option.text }}
                   </button>
                 }
               </div>
-            } @else {
+            }
+
+            @if (currentItem.exerciseType === 'TYPE_ANSWER') {
               <div class="typed-answer">
                 <input
-                  [(ngModel)]="typedAnswer"
-                  [disabled]="answering || !!feedback"
+                  [(ngModel)]="textAnswer"
+                  [disabled]="answering"
                   placeholder="Ta réponse"
-                  (keyup.enter)="answerWithText()"
+                  (keyup.enter)="answer(textAnswer)"
                 />
 
                 <button
                   type="button"
                   class="primary-button"
-                  [disabled]="answering || !!feedback || !typedAnswer.trim()"
-                  (click)="answerWithText()"
+                  [disabled]="answering || !textAnswer.trim()"
+                  (click)="answer(textAnswer)"
                 >
                   Valider
                 </button>
@@ -183,30 +127,30 @@ interface ReviewAnswerResponse {
             @if (feedback) {
               <div class="feedback-panel" [class.correct]="lastCorrect" [class.wrong]="!lastCorrect">
                 <app-mascot
+                  [mood]="feedbackMascotMood"
                   size="sm"
-                  [mood]="lastCorrect ? 'excited' : 'thinking'"
-                  [message]="feedback"
+                  [message]="feedbackMascotMessage"
                 />
 
-                <button type="button" class="primary-button next-button" (click)="nextReviewItem()">
-                  {{ isLastItem() ? 'Terminer' : 'Continuer' }}
-                </button>
+                <p class="feedback-text">
+                  {{ feedback }}
+                </p>
               </div>
             }
-          </section>
-        }
+          }
+        </section>
       </div>
     </main>
   `,
   styles: [`
     .review-page {
       min-height: 100vh;
-      padding: 28px 18px 48px;
-      color: var(--text-main);
+      padding: 32px 20px;
       background:
-        radial-gradient(circle at 10% 8%, rgba(214, 40, 40, 0.10), transparent 260px),
-        radial-gradient(circle at 90% 12%, rgba(31, 95, 67, 0.14), transparent 300px),
-        linear-gradient(135deg, var(--cream), #fffaf2);
+        radial-gradient(circle at 12% 10%, rgba(214, 40, 40, 0.08), transparent 28%),
+        radial-gradient(circle at 88% 18%, rgba(31, 95, 67, 0.12), transparent 30%),
+        linear-gradient(135deg, var(--cream, #f8f4ec), #fffaf2);
+      color: var(--text-main, #1f2933);
     }
 
     .review-shell {
@@ -214,177 +158,158 @@ interface ReviewAnswerResponse {
       margin: 0 auto;
     }
 
+    .review-flag {
+      position: relative;
+      height: 8px;
+      margin-bottom: 18px;
+      border-radius: 999px;
+      overflow: hidden;
+      background:
+        linear-gradient(
+          90deg,
+          var(--lb-red, #d62828) 0 28%,
+          var(--white, #ffffff) 28% 72%,
+          var(--lb-red, #d62828) 72% 100%
+        );
+    }
+
+    .review-flag::after {
+      content: "";
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      width: 14px;
+      height: 10px;
+      transform: translate(-50%, -50%);
+      background: var(--cedar-green, #1f5f43);
+      clip-path: polygon(
+        50% 0%,
+        76% 24%,
+        62% 24%,
+        90% 50%,
+        70% 50%,
+        100% 76%,
+        58% 76%,
+        58% 100%,
+        42% 100%,
+        42% 76%,
+        0% 76%,
+        30% 50%,
+        10% 50%,
+        38% 24%,
+        24% 24%
+      );
+    }
+
     .review-topbar {
       display: flex;
       justify-content: space-between;
-      gap: 16px;
+      gap: 12px;
       align-items: center;
       margin-bottom: 18px;
-    }
-
-    .back-button {
-      border: 0;
-      border-radius: 999px;
-      padding: 10px 15px;
-      color: var(--cedar-green-dark);
-      background: var(--cedar-green-soft);
-      font-weight: 900;
-    }
-
-    .flag-stripe {
-      display: grid;
-      grid-template-columns: 1fr 1.4fr 1fr;
-      width: min(60vw, 380px);
-      height: 8px;
-      overflow: hidden;
-      border-radius: 999px;
-      box-shadow: 0 8px 18px rgba(31, 41, 51, 0.08);
-    }
-
-    .flag-stripe span:nth-child(1) {
-      background: var(--lb-red);
-    }
-
-    .flag-stripe span:nth-child(2) {
-      background: var(--white);
-    }
-
-    .flag-stripe span:nth-child(3) {
-      background: var(--cedar-green);
-    }
-
-    .review-hero,
-    .review-card,
-    .empty-card,
-    .state-card {
-      border: 1px solid var(--border-soft);
-      border-radius: 32px;
-      background: rgba(255, 255, 255, 0.95);
-      box-shadow: var(--shadow-lifted);
-    }
-
-    .review-hero {
-      display: grid;
-      grid-template-columns: 1fr auto;
-      gap: 28px;
-      align-items: center;
-      margin-bottom: 18px;
-      padding: 30px;
-      overflow: hidden;
-      position: relative;
-    }
-
-    .review-hero::before {
-      content: "";
-      position: absolute;
-      right: -60px;
-      top: -70px;
-      width: 220px;
-      height: 220px;
-      border-radius: 50%;
-      background: rgba(244, 185, 66, 0.16);
-    }
-
-    .review-hero > * {
-      position: relative;
-      z-index: 1;
-    }
-
-    .review-chip {
-      display: inline-flex;
-      width: fit-content;
-      align-items: center;
-      gap: 8px;
-      padding: 7px 12px;
-      border-radius: 999px;
-      color: var(--cedar-green-dark);
-      background: var(--cedar-green-soft);
-      font-size: 13px;
-      font-weight: 950;
-    }
-
-    .success-chip {
-      color: #6f4c00;
-      background: #fff1c9;
-    }
-
-    h1,
-    h2 {
-      margin: 0;
-      color: var(--text-main);
-      font-weight: 950;
-      letter-spacing: -0.05em;
-      line-height: 0.95;
-    }
-
-    .review-hero h1,
-    .empty-card h1 {
-      max-width: 560px;
-      margin-top: 14px;
-      font-size: clamp(44px, 6vw, 72px);
-    }
-
-    .review-hero p,
-    .empty-card p {
-      max-width: 540px;
-      margin: 16px 0 0;
-      color: var(--text-muted);
-      font-size: 17px;
-      font-weight: 650;
-      line-height: 1.55;
+      flex-wrap: wrap;
     }
 
     .review-card {
-      width: min(100%, 760px);
-      margin: 0 auto;
-      padding: 30px;
+      background: rgba(255, 255, 255, 0.94);
+      border: 1px solid var(--border-soft, #e8ded0);
+      border-radius: 28px;
+      padding: 28px;
+      box-shadow: var(--shadow-soft, 0 14px 35px rgba(31, 41, 51, 0.08));
     }
 
-    .review-header {
+    .ghost-button,
+    .primary-button {
+      border: 0;
+      border-radius: 999px;
+      padding: 12px 18px;
+      font-weight: 800;
+      font-size: 15px;
+      transition:
+        transform 0.14s ease,
+        box-shadow 0.14s ease,
+        background 0.14s ease,
+        color 0.14s ease;
+    }
+
+    .ghost-button {
+      background: var(--cedar-green-soft, #dceee3);
+      color: var(--cedar-green-dark, #143d2b);
+    }
+
+    .primary-button {
+      background: var(--cedar-green, #1f5f43);
+      color: white;
+      box-shadow: 0 10px 24px rgba(31, 95, 67, 0.24);
+    }
+
+    .ghost-button:hover,
+    .primary-button:hover {
+      transform: translateY(-1px);
+    }
+
+    .primary-button:disabled {
+      opacity: 0.55;
+      cursor: default;
+    }
+
+    .chip,
+    .eyebrow,
+    .mini-chip {
+      display: inline-flex;
+      align-items: center;
+      width: fit-content;
+      border-radius: 999px;
+      padding: 6px 10px;
+      background: var(--cedar-green-soft, #dceee3);
+      color: var(--cedar-green-dark, #143d2b);
+      font-size: 13px;
+      font-weight: 800;
+    }
+
+    .eyebrow {
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      font-weight: 900;
+    }
+
+    .state-panel,
+    .review-hero {
       display: grid;
-      gap: 18px;
-      margin-bottom: 18px;
+      gap: 20px;
+      align-items: center;
     }
 
-    .review-header h2 {
-      margin-top: 16px;
-      font-size: clamp(30px, 4vw, 44px);
-      line-height: 1.05;
+    .review-hero {
+      grid-template-columns: minmax(0, 1fr) auto;
+      margin-bottom: 24px;
+    }
+
+    .hero-copy h1 {
+      margin: 8px 0 12px;
+      font-size: clamp(32px, 4vw, 48px);
+      line-height: 0.95;
+      letter-spacing: -0.04em;
     }
 
     .review-progress-bar {
       height: 12px;
-      overflow: hidden;
       border-radius: 999px;
-      background: var(--cream-2);
+      overflow: hidden;
+      background: var(--cream-2, #efe7da);
+      margin-bottom: 12px;
     }
 
     .review-progress-bar div {
       height: 100%;
       border-radius: inherit;
-      background:
-        linear-gradient(
-          90deg,
-          var(--lb-red) 0 18%,
-          var(--cedar-green) 18% 100%
-        );
+      background: linear-gradient(90deg, var(--cedar-green, #1f5f43), #2f8b61);
     }
 
-    .review-meta {
+    .meta-row {
       display: flex;
-      flex-wrap: wrap;
       gap: 8px;
-      margin-bottom: 22px;
-    }
-
-    .review-meta span {
-      border-radius: 999px;
-      padding: 7px 10px;
-      color: var(--text-muted);
-      background: #fffdf8;
-      border: 1px solid var(--border-soft);
-      font-size: 12px;
-      font-weight: 850;
+      flex-wrap: wrap;
     }
 
     .options,
@@ -393,196 +318,96 @@ interface ReviewAnswerResponse {
       gap: 12px;
     }
 
-    button {
+    .option-button {
+      width: 100%;
+      border: 2px solid #e7e1d6;
+      border-radius: 18px;
+      padding: 16px 18px;
+      background: #fffdf8;
+      color: #18251d;
+      text-align: left;
+      font-weight: 800;
+      font-size: 15px;
       transition:
         background 0.14s ease,
-        color 0.14s ease,
         border-color 0.14s ease,
         transform 0.14s ease,
         box-shadow 0.14s ease;
     }
 
-    button:not(:disabled):hover {
-      transform: translateY(-1px);
-    }
-
-    button:disabled {
-      cursor: not-allowed;
-    }
-
-    .primary-button {
-      border: 0;
-      border-radius: 999px;
-      padding: 14px 20px;
-      color: var(--white);
-      background: var(--cedar-green-dark);
-      box-shadow: 0 12px 24px rgba(20, 61, 43, 0.20);
-      font-weight: 950;
-    }
-
-    .primary-button:disabled {
-      opacity: 0.55;
-    }
-
-    .primary-button:not(:disabled):hover {
-      background: var(--cedar-green);
-    }
-
-    .option-button {
-      width: 100%;
-      border: 2px solid var(--border-soft);
-      border-radius: 20px;
-      padding: 16px 18px;
-      color: var(--text-main);
-      background: #fffdf8;
-      box-shadow: none;
-      text-align: left;
-      font-size: 16px;
-      font-weight: 900;
-    }
-
     .option-button:not(:disabled):hover {
-      border-color: rgba(31, 95, 67, 0.38);
+      transform: translateY(-1px);
+      border-color: var(--cedar-green, #1f5f43);
       background: #f8fbf6;
-      box-shadow: 0 10px 20px rgba(31, 41, 51, 0.08);
+      box-shadow: 0 8px 18px rgba(0, 0, 0, 0.06);
     }
 
-    .option-button.selected {
-      border-color: var(--cedar-green);
-      background: var(--cedar-green-soft);
-    }
-
-    .option-button.correct-selected {
-      border-color: var(--cedar-green);
-      background: var(--cedar-green);
-      color: white;
-      box-shadow: 0 12px 24px rgba(31, 95, 67, 0.22);
-    }
-
-    .option-button.wrong-selected {
-      border-color: var(--lb-red);
-      background: var(--lb-red);
-      color: white;
-      box-shadow: 0 12px 24px rgba(214, 40, 40, 0.20);
-    }
-
-    .option-button:disabled:not(.correct-selected):not(.wrong-selected) {
-      opacity: 0.48;
-      background: #f4f1ea;
-      color: var(--text-muted);
-    }
-
-    input {
-      width: 100%;
-      padding: 16px;
-      border: 2px solid var(--border-soft);
-      border-radius: 20px;
-      background: #fffdf8;
-      color: var(--text-main);
-      font-size: 18px;
-      font-weight: 800;
-      outline: none;
-    }
-
-    input:focus {
-      border-color: var(--cedar-green);
-      box-shadow: 0 0 0 4px rgba(31, 95, 67, 0.10);
-    }
-
-    input:disabled {
-      background: #f4f1ea;
-      color: var(--text-muted);
+    .typed-answer input {
+      padding: 14px;
+      border: 1px solid #ddd;
+      border-radius: 16px;
+      font-size: 16px;
+      background: white;
     }
 
     .feedback-panel {
-      display: grid;
-      gap: 16px;
-      margin-top: 20px;
-      padding: 18px;
-      border-radius: 24px;
-      border: 1px solid var(--border-soft);
-    }
-
-    .feedback-panel.correct {
+      margin-top: 18px;
+      border-radius: 22px;
+      padding: 16px;
+      border: 1px solid #d7ebd7;
       background: #f3faf3;
-      border-color: rgba(31, 95, 67, 0.22);
     }
 
     .feedback-panel.wrong {
-      background: #fff1f1;
-      border-color: rgba(214, 40, 40, 0.20);
+      border-color: #ffd0d0;
+      background: #fff4f4;
     }
 
-    .next-button {
-      width: 100%;
+    .feedback-text {
+      margin: 12px 0 0;
+      font-weight: 800;
+      line-height: 1.45;
+      color: #1f2933;
     }
 
-    .empty-card,
-    .state-card {
-      display: grid;
-      gap: 22px;
-      justify-items: start;
-      padding: 30px;
-    }
-
-    .error-card {
-      border-color: rgba(214, 40, 40, 0.25);
-      background: var(--lb-red-soft);
-    }
-
-    @media (max-width: 780px) {
+    @media (max-width: 860px) {
       .review-hero {
         grid-template-columns: 1fr;
       }
     }
 
-    @media (max-width: 560px) {
+    @media (max-width: 680px) {
       .review-page {
-        padding: 18px 12px 34px;
+        padding: 20px 14px;
       }
 
-      .review-hero,
-      .review-card,
-      .empty-card,
-      .state-card {
-        border-radius: 24px;
+      .review-card {
         padding: 20px;
-      }
-
-      .review-hero h1,
-      .empty-card h1 {
-        font-size: 42px;
-      }
-
-      .flag-stripe {
-        width: 150px;
       }
     }
   `]
 })
 export class ReviewComponent implements OnInit {
-  queue: ReviewItemResponse[] = [];
+  reviewItems: ReviewItemResponse[] = [];
   currentItem: ReviewItemResponse | null = null;
-  currentIndex = 0;
 
-  typedAnswer = '';
-  selectedAnswer = '';
+  index = 0;
+  textAnswer = '';
   feedback = '';
   lastCorrect = false;
 
   loading = true;
   answering = false;
-  finished = false;
   errorMessage = '';
 
   constructor(
-    private readonly api: ApiService,
-    private readonly auth: AuthService,
+    private readonly apiService: ApiService,
+    private readonly authService: AuthService,
     private readonly router: Router
   ) {}
 
   ngOnInit(): void {
-    if (!this.auth.isLoggedIn()) {
+    if (!this.authService.isLoggedIn()) {
       this.router.navigateByUrl('/login');
       return;
     }
@@ -590,112 +415,112 @@ export class ReviewComponent implements OnInit {
     this.loadReviewQueue();
   }
 
-  loadReviewQueue(): void {
-    this.loading = true;
-    this.errorMessage = '';
-
-    this.api.getReviewQueue().subscribe({
-      next: queue => {
-        this.queue = queue;
-        this.currentIndex = 0;
-        this.currentItem = this.queue[0] ?? null;
-        this.loading = false;
-      },
-      error: () => {
-        this.errorMessage = 'Impossible de charger les révisions.';
-        this.loading = false;
-      }
-    });
-  }
-
-  hasOptions(): boolean {
-    return (this.currentItem?.options.length ?? 0) > 0;
-  }
-
-  reviewProgressPercent(): number {
-    if (this.queue.length === 0) {
+  get progressPercent(): number {
+    if (this.reviewItems.length === 0) {
       return 0;
     }
 
-    return ((this.currentIndex + 1) * 100) / this.queue.length;
+    return ((this.index + 1) * 100) / this.reviewItems.length;
   }
 
-  reviewMascotMessage(): string {
-    if (!this.currentItem) {
-      return 'On révise ce qui mérite un rappel.';
+  get currentMascotMood(): MascotMood {
+    if (this.feedback) {
+      return this.lastCorrect ? 'happy' : 'sad';
     }
 
-    if (this.currentItem.failureCount >= 3) {
-      return 'Ce mot résiste un peu. On le casse ensemble.';
+    if (!this.currentItem) {
+      return 'proud';
+    }
+
+    if (this.currentItem.failureCount >= 2) {
+      return 'encouraging';
+    }
+
+    return this.currentItem.exerciseType === 'TYPE_ANSWER'
+      ? 'thinking'
+      : 'neutral';
+  }
+
+  get currentMascotMessage(): string {
+    if (this.feedback) {
+      return this.lastCorrect
+        ? 'Bien. Cette carte repart plus loin.'
+        : 'Pas grave. Elle reviendra.';
+    }
+
+    if (!this.currentItem) {
+      return 'File vide.';
+    }
+
+    if (this.currentItem.failureCount >= 2) {
+      return 'Celle-là mérite un peu plus d’attention.';
     }
 
     return 'Petite révision rapide. Pas besoin de stress.';
   }
 
-  answerWithOption(answer: string): void {
-    this.selectedAnswer = answer;
-    this.submitAnswer(answer);
+  get feedbackMascotMood(): MascotMood {
+    return this.lastCorrect ? 'happy' : 'sad';
   }
 
-  answerWithText(): void {
-    const answer = this.typedAnswer.trim();
-
-    if (!answer) {
-      return;
-    }
-
-    this.submitAnswer(answer);
+  get feedbackMascotMessage(): string {
+    return this.lastCorrect
+      ? 'Sah. C’était correct.'
+      : 'Oops. On la reverra encore.';
   }
 
-  submitAnswer(answer: string): void {
-    if (!this.currentItem || this.answering || this.feedback) {
+  loadReviewQueue(): void {
+    this.apiService.getReviewQueue().subscribe({
+      next: items => {
+        this.reviewItems = items;
+        this.currentItem = this.reviewItems[0] ?? null;
+        this.loading = false;
+      },
+      error: () => {
+        this.errorMessage = 'Impossible de charger la file de révision.';
+        this.loading = false;
+      }
+    });
+  }
+
+  answer(answer: string): void {
+    if (!this.currentItem || this.answering || !answer.trim()) {
       return;
     }
 
     this.answering = true;
 
-    this.api.answerReviewItem(this.currentItem.id, answer).subscribe({
-      next: response => this.handleAnswerResponse(response),
+    this.apiService.answerReviewItem(this.currentItem.id, answer).subscribe({
+      next: result => {
+        this.lastCorrect = result.correct;
+        this.feedback = result.correct
+          ? 'Correct, révision planifiée.'
+          : `Incorrect. Réponse attendue : ${result.expectedAnswer}`;
+
+        setTimeout(() => this.nextItem(), 1400);
+      },
       error: () => {
         this.answering = false;
-        this.errorMessage = 'Impossible de valider la réponse.';
+        this.errorMessage = 'Impossible de valider la révision.';
       }
     });
   }
 
-  handleAnswerResponse(response: ReviewAnswerResponse): void {
-    this.lastCorrect = response.correct;
-    this.feedback = response.correct
-      ? 'Correct'
-      : `Presque. Réponse attendue : ${response.expectedAnswer}`;
+  nextItem(): void {
+    this.index++;
 
-    this.answering = false;
-  }
-
-  nextReviewItem(): void {
-    this.currentIndex++;
-
-    if (this.currentIndex >= this.queue.length) {
-      this.finished = true;
+    if (this.index >= this.reviewItems.length) {
       this.currentItem = null;
-      this.resetAnswerState();
+      this.reviewItems = [];
+      this.feedback = '';
+      this.answering = false;
       return;
     }
 
-    this.currentItem = this.queue[this.currentIndex];
-    this.resetAnswerState();
-  }
-
-  resetAnswerState(): void {
-    this.typedAnswer = '';
-    this.selectedAnswer = '';
+    this.currentItem = this.reviewItems[this.index];
+    this.textAnswer = '';
     this.feedback = '';
-    this.lastCorrect = false;
     this.answering = false;
-  }
-
-  isLastItem(): boolean {
-    return this.currentIndex >= this.queue.length - 1;
   }
 
   backToCourse(): void {
