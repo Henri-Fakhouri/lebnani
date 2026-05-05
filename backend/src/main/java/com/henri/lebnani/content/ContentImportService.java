@@ -9,6 +9,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.Objects;
 
 @Service
 public class ContentImportService {
@@ -59,7 +60,7 @@ public class ContentImportService {
         try {
             contentImportValidator.validate(request);
 
-            ContentImportResponse response = doImport(course, savedRun.getId(), request);
+            ContentImportResponse response = doImport(course, Objects.requireNonNull(savedRun.getId()), request);
             savedRun.markCompleted(response);
             contentImportRunRepository.save(savedRun);
 
