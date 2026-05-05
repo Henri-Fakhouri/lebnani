@@ -18,4 +18,12 @@ public class ProgressController {
     public UserProgressResponse getMyProgress(@AuthenticationPrincipal User user) {
         return progressService.getUserProgress(user);
     }
+
+    @GetMapping("/courses/{courseId}/progress")
+    public CourseProgressResponse getMyCourseProgress(
+            @PathVariable Long courseId,
+            @AuthenticationPrincipal User user
+    ) {
+        return progressService.getCourseProgress(courseId, user);
+    }
 }

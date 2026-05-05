@@ -2,6 +2,7 @@ package com.henri.lebnani.progress;
 
 import org.springframework.data.jpa.repository.JpaRepository;
 
+import java.util.List;
 import java.util.Optional;
 
 public interface UserLessonProgressRepository extends JpaRepository<UserLessonProgress, Long> {
@@ -9,4 +10,6 @@ public interface UserLessonProgressRepository extends JpaRepository<UserLessonPr
     Optional<UserLessonProgress> findByUserIdAndLessonId(Long userId, Long lessonId);
 
     long countByUserIdAndCompletedTrue(Long userId);
+
+    List<UserLessonProgress> findByUserId(Long userId);
 }
