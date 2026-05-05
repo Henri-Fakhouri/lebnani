@@ -1,8 +1,9 @@
 import { Component, OnInit } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
-import { ApiService } from '../../core/api.service';
+import { ApiService, LessonContentBlockResponse } from '../../core/api.service';
 import { AuthService } from '../../core/auth.service';
 import { FormsModule } from '@angular/forms';
+import { marked } from 'marked';
 
 @Component({
   selector: 'app-lesson',
@@ -19,6 +20,38 @@ import { FormsModule } from '@angular/forms';
           <h1>Leçon vide</h1>
           <p>Cette leçon n’a pas encore d’exercices.</p>
           <button type="button" class="primary-button" (click)="backToCourse()">Retour au parcours</button>
+        }
+
+        @if (!loading && !emptyLesson && readingMode && contentBlocks.length > 0) {
+          <p class="progress">Cours</p>
+
+          <div class="course-content">
+            @for (block of contentBlocks; track block.id) {
+              @if (block.type === 'HEADING') {
+                <h1>{{ block.content }}</h1>
+              }
+
+              @if (block.type === 'MARKDOWN') {
+                <div class="markdown-block" [innerHTML]="renderMarkdown(block.content)"></div>
+              }
+
+              @if (block.type === 'NOTE') {
+                <div class="note-block">
+                  {{ block.content }}
+                </div>
+              }
+
+              @if (block.type === 'EXAMPLE') {
+                <div class="example-block">
+                  {{ block.content }}
+                </div>
+              }
+            }
+          </div>
+
+          <button type="button" class="primary-button next-button" (click)="startExercises()">
+            Commencer les exercices
+          </button>
         }
 
         @if (!loading && completed && result) {
@@ -52,7 +85,7 @@ import { FormsModule } from '@angular/forms';
           <button type="button" class="primary-button" (click)="backToCourse()">Retour au parcours</button>
         }
 
-        @if (!loading && !completed && exercise) {
+        @if (!loading && !completed && !readingMode && exercise) {
           <p class="progress">Question {{ index + 1 }} / {{ exercises.length }}</p>
 
           <div class="question-progress-bar">
@@ -116,7 +149,7 @@ import { FormsModule } from '@angular/forms';
       </section>
     </main>
   `,
-  styles: [`
+    styles: [`
     .lesson-page {
       min-height: 100vh;
       display: grid;
@@ -129,7 +162,7 @@ import { FormsModule } from '@angular/forms';
 
     .lesson-card {
       width: 100%;
-      max-width: 680px;
+      max-width: 760px;
       background: white;
       border-radius: 22px;
       padding: 32px;
@@ -149,6 +182,82 @@ import { FormsModule } from '@angular/forms';
     .progress {
       font-weight: 700;
       color: #253d2c;
+    }
+
+    .course-content {
+      display: grid;
+      gap: 18px;
+      margin-bottom: 24px;
+    }
+
+    .markdown-block {
+      color: #2d3a30;
+      line-height: 1.65;
+    }
+
+    :host ::ng-deep .markdown-block p {
+      color: #2d3a30;
+      margin-bottom: 14px;
+    }
+
+    :host ::ng-deep .markdown-block strong {
+      color: #18251d;
+      font-weight: 800;
+    }
+
+    :host ::ng-deep .markdown-block table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 16px 0;
+      border-radius: 12px;
+      overflow: hidden;
+      border: 1px solid #e7e1d6;
+    }
+
+    :host ::ng-deep .markdown-block th,
+    :host ::ng-deep .markdown-block td {
+      border: 1px solid #e7e1d6;
+      padding: 10px 12px;
+      text-align: left;
+    }
+
+    :host ::ng-deep .markdown-block th {
+      background: #eef4ed;
+      color: #253d2c;
+      font-weight: 800;
+    }
+
+    :host ::ng-deep .markdown-block td {
+      background: #fffdf8;
+      color: #18251d;
+    }
+
+    :host ::ng-deep .markdown-block ul,
+    :host ::ng-deep .markdown-block ol {
+      margin: 0 0 14px 22px;
+      padding: 0;
+    }
+
+    :host ::ng-deep .markdown-block li {
+      margin-bottom: 6px;
+    }
+
+    .note-block {
+      background: #fff7df;
+      color: #6a5320;
+      border-radius: 14px;
+      padding: 14px;
+      line-height: 1.5;
+      font-weight: 600;
+    }
+
+    .example-block {
+      background: #f3faf3;
+      color: #253d2c;
+      border-radius: 14px;
+      padding: 14px;
+      line-height: 1.5;
+      font-weight: 600;
     }
 
     .question-progress-bar {
@@ -323,6 +432,7 @@ export class LessonComponent implements OnInit {
   lessonId!: number;
   attemptId!: number;
 
+  contentBlocks: LessonContentBlockResponse[] = [];
   exercises: any[] = [];
   index = 0;
   exercise: any = null;
@@ -334,17 +444,18 @@ export class LessonComponent implements OnInit {
 
   loading = true;
   answering = false;
+  readingMode = true;
   emptyLesson = false;
   completed = false;
   result: any = null;
   errorMessage = '';
 
   constructor(
-    private route: ActivatedRoute,
-    private api: ApiService,
-    private auth: AuthService,
-    private router: Router
-  ) {}
+    private readonly route: ActivatedRoute,
+    private readonly api: ApiService,
+    private readonly auth: AuthService,
+    private readonly router: Router
+  ) { }
 
   ngOnInit(): void {
     if (!this.auth.isLoggedIn()) {
@@ -354,6 +465,19 @@ export class LessonComponent implements OnInit {
 
     this.lessonId = Number(this.route.snapshot.paramMap.get('id'));
 
+    this.api.getLessonContent(this.lessonId).subscribe({
+      next: contentBlocks => {
+        this.contentBlocks = contentBlocks;
+        this.loadExercises();
+      },
+      error: () => {
+        this.loading = false;
+        this.errorMessage = 'Impossible de charger le contenu de la leçon.';
+      }
+    });
+  }
+
+  loadExercises(): void {
     this.api.getExercises(this.lessonId).subscribe({
       next: exercises => {
         this.exercises = exercises;
@@ -364,21 +488,34 @@ export class LessonComponent implements OnInit {
           return;
         }
 
-        this.api.startLesson(this.lessonId).subscribe({
-          next: start => {
-            this.attemptId = start.attemptId;
-            this.exercise = this.exercises[this.index];
-            this.loading = false;
-          },
-          error: () => {
-            this.loading = false;
-            this.errorMessage = 'Impossible de démarrer la leçon.';
-          }
-        });
+        if (this.contentBlocks.length === 0) {
+          this.startExercises();
+          return;
+        }
+
+        this.loading = false;
+        this.readingMode = true;
       },
       error: () => {
         this.loading = false;
         this.errorMessage = 'Impossible de charger les exercices.';
+      }
+    });
+  }
+
+  startExercises(): void {
+    this.loading = true;
+    this.readingMode = false;
+
+    this.api.startLesson(this.lessonId).subscribe({
+      next: start => {
+        this.attemptId = start.attemptId;
+        this.exercise = this.exercises[this.index];
+        this.loading = false;
+      },
+      error: () => {
+        this.loading = false;
+        this.errorMessage = 'Impossible de démarrer la leçon.';
       }
     });
   }
@@ -456,6 +593,16 @@ export class LessonComponent implements OnInit {
       ? 'Correct'
       : `Incorrect. Réponse attendue : ${expectedAnswer}`;
     this.answering = false;
+  }
+
+  renderMarkdown(content: string): string {
+    const normalizedContent = content.replaceAll('\\n', '\n');
+
+    return marked.parse(normalizedContent, {
+      async: false,
+      gfm: true,
+      breaks: true
+    });
   }
 
   backToCourse(): void {
