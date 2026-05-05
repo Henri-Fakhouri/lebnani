@@ -44,4 +44,28 @@ public class AuthService {
                 savedUser.getDisplayName()
         );
     }
+
+    @Transactional(readOnly = true)
+    public LoginResponse login(LoginRequest request) {
+        String normalizedEmail = request.getEmail().trim().toLowerCase();
+
+        User user = userRepository.findByEmail(normalizedEmail)
+                .orElseThrow(() -> new BusinessException("INVALID_CREDENTIALS", "Invalid email or password."));
+
+        boolean passwordMatches = passwordEncoder.matches(
+                request.getPassword(),
+                user.getPasswordHash()
+        );
+
+        if (!passwordMatches) {
+            throw new BusinessException("INVALID_CREDENTIALS", "Invalid email or password.");
+        }
+
+        return new LoginResponse(
+                user.getId(),
+                user.getEmail(),
+                user.getDisplayName(),
+                user.getRole().name()
+        );
+    }
 }
