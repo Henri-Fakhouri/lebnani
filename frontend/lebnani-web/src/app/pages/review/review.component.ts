@@ -5,10 +5,10 @@ import { ApiService, ReviewItemResponse } from '../../core/api.service';
 import { AuthService } from '../../core/auth.service';
 
 @Component({
-  selector: 'app-review',
-  standalone: true,
-  imports: [FormsModule],
-  template: `
+    selector: 'app-review',
+    standalone: true,
+    imports: [FormsModule],
+    template: `
     <main class="review-page">
       <section class="review-card">
         <header>
@@ -91,7 +91,7 @@ import { AuthService } from '../../core/auth.service';
       </section>
     </main>
   `,
-  styles: [`
+    styles: [`
     .review-page {
       min-height: 100vh;
       display: grid;
@@ -203,86 +203,88 @@ import { AuthService } from '../../core/auth.service';
   `]
 })
 export class ReviewComponent implements OnInit {
-  reviewItems: ReviewItemResponse[] = [];
-  currentItem: ReviewItemResponse | null = null;
+    reviewItems: ReviewItemResponse[] = [];
+    currentItem: ReviewItemResponse | null = null;
 
-  index = 0;
-  textAnswer = '';
-  feedback = '';
-  lastCorrect = false;
+    index = 0;
+    textAnswer = '';
+    feedback = '';
+    lastCorrect = false;
 
-  loading = true;
-  answering = false;
-  errorMessage = '';
+    loading = true;
+    answering = false;
+    errorMessage = '';
 
-  constructor(
-    private readonly apiService: ApiService,
-    private readonly authService: AuthService,
-    private readonly router: Router
-  ) {}
+    constructor(
+        private readonly apiService: ApiService,
+        private readonly authService: AuthService,
+        private readonly router: Router
+    ) { }
 
-  ngOnInit(): void {
-    if (!this.authService.isLoggedIn()) {
-      this.router.navigateByUrl('/login');
-      return;
+    ngOnInit(): void {
+        if (!this.authService.isLoggedIn()) {
+            this.router.navigateByUrl('/login');
+            return;
+        }
+
+        this.loadReviewQueue();
     }
 
-    this.loadReviewQueue();
-  }
-
-  loadReviewQueue(): void {
-    this.apiService.getReviewQueue().subscribe({
-      next: items => {
-        this.reviewItems = items;
-        this.currentItem = this.reviewItems[0] ?? null;
-        this.loading = false;
-      },
-      error: () => {
-        this.errorMessage = 'Impossible de charger la file de révision.';
-        this.loading = false;
-      }
-    });
-  }
-
-  answer(answer: string): void {
-    if (!this.currentItem || this.answering || !answer.trim()) {
-      return;
+    loadReviewQueue(): void {
+        this.apiService.getReviewQueue().subscribe({
+            next: items => {
+                this.reviewItems = items;
+                this.currentItem = this.reviewItems[0] ?? null;
+                this.loading = false;
+            },
+            error: () => {
+                this.errorMessage = 'Impossible de charger la file de révision.';
+                this.loading = false;
+            }
+        });
     }
 
-    this.answering = true;
+    answer(answer: string): void {
+        if (!this.currentItem || this.answering || !answer.trim()) {
+            return;
+        }
 
-    this.apiService.answerReviewItem(this.currentItem.id, answer).subscribe({
-      next: result => {
-        this.lastCorrect = result.correct;
-        this.feedback = result.correct ? 'Correct, révision planifiée.' : 'Faux, à revoir encore.';
+        this.answering = true;
 
-        setTimeout(() => this.nextItem(), 900);
-      },
-      error: () => {
+        this.apiService.answerReviewItem(this.currentItem.id, answer).subscribe({
+            next: result => {
+                this.lastCorrect = result.correct;
+                this.feedback = result.correct
+                    ? 'Correct, révision planifiée.'
+                    : `Incorrect. Réponse attendue : ${result.expectedAnswer}`;
+
+                setTimeout(() => this.nextItem(), 1400);
+            },
+            error: () => {
+                this.answering = false;
+                this.errorMessage = 'Impossible de valider la révision.';
+            }
+        });
+    }
+
+    nextItem(): void {
+        this.index++;
+
+        if (this.index >= this.reviewItems.length) {
+            this.currentItem = null;
+            this.reviewItems = [];
+            this.feedback = '';
+            this.answering = false;
+            return;
+        }
+
+        this.currentItem = this.reviewItems[this.index];
+        this.textAnswer = '';
+        this.feedback = '';
         this.answering = false;
-        this.errorMessage = 'Impossible de valider la révision.';
-      }
-    });
-  }
-
-  nextItem(): void {
-    this.index++;
-
-    if (this.index >= this.reviewItems.length) {
-      this.currentItem = null;
-      this.reviewItems = [];
-      this.feedback = '';
-      this.answering = false;
-      return;
     }
 
-    this.currentItem = this.reviewItems[this.index];
-    this.textAnswer = '';
-    this.feedback = '';
-    this.answering = false;
-  }
-
-  backToCourse(): void {
-    this.router.navigateByUrl('/course');
-  }
+    backToCourse(): void {
+        this.router.navigateByUrl('/course');
+    }
 }
