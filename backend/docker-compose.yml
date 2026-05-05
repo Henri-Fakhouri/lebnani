@@ -11,5 +11,21 @@ services:
     volumes:
       - lebnani-postgres-data:/var/lib/postgresql/data
 
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: lebnani-api
+    depends_on:
+      - postgres
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/lebnani
+      SPRING_DATASOURCE_USERNAME: lebnani
+      SPRING_DATASOURCE_PASSWORD: lebnani
+      APP_JWT_SECRET: CHANGE_THIS_SECRET_CHANGE_THIS_SECRET_CHANGE_THIS_SECRET_123456
+      APP_JWT_EXPIRATION_MINUTES: 60
+    ports:
+      - "8080:8080"
+
 volumes:
   lebnani-postgres-data:
