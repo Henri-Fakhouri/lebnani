@@ -205,14 +205,70 @@ a {
     );
 }
 
-.lb-lebanese-stripe {
-  height: 8px;
-  border-radius: 999px;
+/*
+  Lebanese flag stripe:
+  red / white with cedar / red.
+  This also overrides older .flag-stripe blocks inside components.
+*/
+.lb-lebanese-stripe,
+.flag-stripe {
+  position: relative !important;
+  display: grid !important;
+  grid-template-columns: 1fr 1.4fr 1fr !important;
+  height: 10px !important;
+  overflow: hidden !important;
+  border-radius: 999px !important;
   background:
     linear-gradient(
       90deg,
       var(--lb-red) 0 28%,
       var(--white) 28% 72%,
-      var(--cedar-green) 72% 100%
-    );
+      var(--lb-red) 72% 100%
+    ) !important;
+  box-shadow: 0 8px 18px rgba(31, 41, 51, 0.08);
+}
+
+.lb-lebanese-stripe > span:nth-child(1),
+.flag-stripe > span:nth-child(1) {
+  background: var(--lb-red) !important;
+}
+
+.lb-lebanese-stripe > span:nth-child(2),
+.flag-stripe > span:nth-child(2) {
+  background: var(--white) !important;
+}
+
+.lb-lebanese-stripe > span:nth-child(3),
+.flag-stripe > span:nth-child(3) {
+  background: var(--lb-red) !important;
+}
+
+.lb-lebanese-stripe::after,
+.flag-stripe::after {
+  content: "" !important;
+  position: absolute !important;
+  top: 50% !important;
+  left: 50% !important;
+  z-index: 2 !important;
+  width: 20px !important;
+  height: 14px !important;
+  transform: translate(-50%, -50%) !important;
+  background: var(--cedar-green) !important;
+  clip-path: polygon(
+    50% 0%,
+    78% 20%,
+    64% 20%,
+    88% 42%,
+    68% 42%,
+    100% 68%,
+    58% 68%,
+    58% 100%,
+    42% 100%,
+    42% 68%,
+    0% 68%,
+    32% 42%,
+    12% 42%,
+    36% 20%,
+    22% 20%
+  ) !important;
 }
