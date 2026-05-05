@@ -165,14 +165,21 @@ import { FormsModule } from '@angular/forms';
 
     .feedback {
       margin-top: 18px;
+      padding: 12px 14px;
+      border-radius: 12px;
       font-weight: 700;
     }
 
     .feedback.correct {
       color: #1b7f3a;
+      background: #f3faf3;
     }
 
-    .feedback.wrong,
+    .feedback.wrong {
+      color: #b00020;
+      background: #fff1f1;
+    }
+
     .error {
       color: #b00020;
     }
@@ -313,7 +320,7 @@ export class LessonComponent implements OnInit {
       exerciseId: this.exercise.id,
       selectedOptionId: optionId
     }).subscribe({
-      next: res => this.handleAnswerResult(res.correct),
+      next: res => this.handleAnswerResult(res.correct, res.expectedAnswer),
       error: () => {
         this.answering = false;
         this.errorMessage = 'Impossible de valider la réponse.';
@@ -332,7 +339,7 @@ export class LessonComponent implements OnInit {
       exerciseId: this.exercise.id,
       answer: this.textAnswer
     }).subscribe({
-      next: res => this.handleAnswerResult(res.correct),
+      next: res => this.handleAnswerResult(res.correct, res.expectedAnswer),
       error: () => {
         this.answering = false;
         this.errorMessage = 'Impossible de valider la réponse.';
@@ -340,11 +347,13 @@ export class LessonComponent implements OnInit {
     });
   }
 
-  handleAnswerResult(correct: boolean): void {
+  handleAnswerResult(correct: boolean, expectedAnswer: string): void {
     this.lastCorrect = correct;
-    this.feedback = correct ? 'Correct' : 'Faux';
+    this.feedback = correct
+      ? 'Correct'
+      : `Incorrect. Réponse attendue : ${expectedAnswer}`;
 
-    setTimeout(() => this.next(), 800);
+    setTimeout(() => this.next(), 1200);
   }
 
   backToCourse(): void {
