@@ -1,7 +1,7 @@
 services:
   postgres:
     image: postgres:16
-    container_name: lebnani-postgres
+    container_name: lebnani-backend-postgres
     environment:
       POSTGRES_DB: lebnani
       POSTGRES_USER: lebnani
@@ -9,13 +9,13 @@ services:
     ports:
       - "5432:5432"
     volumes:
-      - lebnani-postgres-data:/var/lib/postgresql/data
+      - lebnani-backend-postgres-data:/var/lib/postgresql/data
 
   api:
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: lebnani-api
+    container_name: lebnani-backend-api
     depends_on:
       - postgres
     environment:
@@ -28,4 +28,4 @@ services:
       - "8080:8080"
 
 volumes:
-  lebnani-postgres-data:
+  lebnani-backend-postgres-data:
