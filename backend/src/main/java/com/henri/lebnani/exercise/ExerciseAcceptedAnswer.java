@@ -28,11 +28,23 @@ public class ExerciseAcceptedAnswer {
         return exercise;
     }
 
+    public void setExercise(Exercise exercise) {
+        this.exercise = exercise;
+    }
+
     public String getAnswerText() {
         return answerText;
     }
 
+    public void setAnswerText(String answerText) {
+        this.answerText = answerText;
+    }
+
     public int getDisplayOrder() {
         return displayOrder;
+    }
+
+    public void setDisplayOrder(int displayOrder) {
+        this.displayOrder = displayOrder;
     }
 }

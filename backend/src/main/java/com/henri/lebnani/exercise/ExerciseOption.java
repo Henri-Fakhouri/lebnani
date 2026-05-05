@@ -31,15 +31,31 @@ public class ExerciseOption {
         return exercise;
     }
 
+    public void setExercise(Exercise exercise) {
+        this.exercise = exercise;
+    }
+
     public String getTextValue() {
         return textValue;
+    }
+
+    public void setTextValue(String textValue) {
+        this.textValue = textValue;
     }
 
     public boolean isCorrect() {
         return correct;
     }
 
+    public void setCorrect(boolean correct) {
+        this.correct = correct;
+    }
+
     public int getDisplayOrder() {
         return displayOrder;
+    }
+
+    public void setDisplayOrder(int displayOrder) {
+        this.displayOrder = displayOrder;
     }
 }

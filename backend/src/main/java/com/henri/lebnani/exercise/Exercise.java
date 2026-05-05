@@ -54,24 +54,48 @@ public class Exercise {
         return lesson;
     }
 
+    public void setLesson(Lesson lesson) {
+        this.lesson = lesson;
+    }
+
     public ExerciseType getType() {
         return type;
+    }
+
+    public void setType(ExerciseType type) {
+        this.type = type;
     }
 
     public String getPromptFr() {
         return promptFr;
     }
 
+    public void setPromptFr(String promptFr) {
+        this.promptFr = promptFr;
+    }
+
     public String getCorrectAnswer() {
         return correctAnswer;
+    }
+
+    public void setCorrectAnswer(String correctAnswer) {
+        this.correctAnswer = correctAnswer;
     }
 
     public int getDisplayOrder() {
         return displayOrder;
     }
 
+    public void setDisplayOrder(int displayOrder) {
+        this.displayOrder = displayOrder;
+    }
+
     public boolean isPublished() {
         return published;
+    }
+
+    public void setPublished(boolean published) {
+        this.published = published;
     }
 
     public Instant getCreatedAt() {
