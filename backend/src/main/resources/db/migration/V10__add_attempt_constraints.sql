@@ -1,0 +1,3 @@
+ALTER TABLE exercise_attempt
+ADD CONSTRAINT uq_exercise_attempt_once_per_attempt
+UNIQUE (lesson_attempt_id, exercise_id);

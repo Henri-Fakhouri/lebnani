@@ -31,8 +31,7 @@ public class ProgressService {
             StreakStateRepository streakStateRepository,
             CourseRepository courseRepository,
             CourseUnitRepository courseUnitRepository,
-            LessonRepository lessonRepository
-    ) {
+            LessonRepository lessonRepository) {
         this.xpEventRepository = xpEventRepository;
         this.userLessonProgressRepository = userLessonProgressRepository;
         this.streakStateRepository = streakStateRepository;
@@ -43,16 +42,24 @@ public class ProgressService {
 
     @Transactional
     public int applyLessonCompletion(User user, LessonAttempt lessonAttempt, int scorePercent) {
-        int xpAmount = calculateXp(scorePercent);
-
-        XpEvent xpEvent = new XpEvent();
-        xpEvent.setUser(user);
-        xpEvent.setLessonAttempt(lessonAttempt);
-        xpEvent.setAmount(xpAmount);
-        xpEvent.setReason("LESSON_COMPLETED");
-        xpEventRepository.save(xpEvent);
-
         Lesson lesson = lessonAttempt.getLesson();
+
+        UserLessonProgress existingProgress = userLessonProgressRepository
+                .findByUserIdAndLessonId(user.getId(), lesson.getId())
+                .orElse(null);
+
+        boolean alreadyCompleted = existingProgress != null && existingProgress.isCompleted();
+
+        int xpAmount = alreadyCompleted ? 0 : calculateXp(scorePercent);
+
+        if (xpAmount > 0) {
+            XpEvent xpEvent = new XpEvent();
+            xpEvent.setUser(user);
+            xpEvent.setLessonAttempt(lessonAttempt);
+            xpEvent.setAmount(xpAmount);
+            xpEvent.setReason("LESSON_COMPLETED");
+            xpEventRepository.save(xpEvent);
+        }
 
         UserLessonProgress progress = userLessonProgressRepository
                 .findByUserIdAndLessonId(user.getId(), lesson.getId())
@@ -96,8 +103,7 @@ public class ProgressService {
                 totalXp,
                 completedLessons,
                 currentStreak,
-                longestStreak
-        );
+                longestStreak);
     }
 
     @Transactional(readOnly = true)
@@ -106,14 +112,14 @@ public class ProgressService {
                 .orElseThrow(() -> new BusinessException("COURSE_NOT_FOUND", "Course not found."));
 
         List<CourseUnit> units = courseUnitRepository.findByCourseIdAndPublishedTrueOrderByDisplayOrderAsc(courseId);
-        List<Lesson> lessons = lessonRepository.findByUnitCourseIdAndPublishedTrueOrderByUnitDisplayOrderAscDisplayOrderAsc(courseId);
+        List<Lesson> lessons = lessonRepository
+                .findByUnitCourseIdAndPublishedTrueOrderByUnitDisplayOrderAscDisplayOrderAsc(courseId);
 
         Map<Long, UserLessonProgress> progressByLessonId = userLessonProgressRepository.findByUserId(user.getId())
                 .stream()
                 .collect(Collectors.toMap(
                         progress -> progress.getLesson().getId(),
-                        progress -> progress
-                ));
+                        progress -> progress));
 
         Map<Long, List<Lesson>> lessonsByUnitId = lessons.stream()
                 .collect(Collectors.groupingBy(lesson -> lesson.getUnit().getId()));
@@ -130,15 +136,15 @@ public class ProgressService {
                                 UserLessonProgress lessonProgress = progressByLessonId.get(lesson.getId());
 
                                 boolean completed = lessonProgress != null && lessonProgress.isCompleted();
-                                int bestScorePercent = lessonProgress == null ? 0 : lessonProgress.getBestScorePercent();
+                                int bestScorePercent = lessonProgress == null ? 0
+                                        : lessonProgress.getBestScorePercent();
 
                                 return new LessonProgressResponse(
                                         lesson.getId(),
                                         lesson.getTitle(),
                                         lesson.getDisplayOrder(),
                                         completed,
-                                        bestScorePercent
-                                );
+                                        bestScorePercent);
                             })
                             .toList();
 
@@ -152,8 +158,7 @@ public class ProgressService {
                             unit.getDisplayOrder(),
                             lessonResponses.size(),
                             completedLessons,
-                            lessonResponses
-                    );
+                            lessonResponses);
                 })
                 .toList();
 
@@ -167,8 +172,7 @@ public class ProgressService {
                 course.getTitle(),
                 totalLessons,
                 completedLessons,
-                unitResponses
-        );
+                unitResponses);
     }
 
     private int calculateXp(int scorePercent) {

@@ -7,4 +7,6 @@ public interface ExerciseAttemptRepository extends JpaRepository<ExerciseAttempt
     long countByLessonAttemptId(Long lessonAttemptId);
 
     long countByLessonAttemptIdAndCorrectTrue(Long lessonAttemptId);
+
+    boolean existsByLessonAttemptIdAndExerciseId(Long lessonAttemptId, Long exerciseId);
 }
