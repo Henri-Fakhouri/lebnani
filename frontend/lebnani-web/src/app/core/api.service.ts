@@ -126,6 +126,14 @@ export class ApiService {
         );
     }
 
+    register(email: string, password: string, displayName: string): Observable<any> {
+        return this.http.post<any>('/api/auth/register', {
+            email,
+            password,
+            displayName
+        });
+    }
+
     answerReviewItem(reviewItemId: number, answer: string): Observable<any> {
         return this.http.post<any>(
             `/api/users/me/review-items/${reviewItemId}/answer`,

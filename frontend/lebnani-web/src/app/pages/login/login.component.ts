@@ -5,10 +5,10 @@ import { ApiService } from '../../core/api.service';
 import { AuthService } from '../../core/auth.service';
 
 @Component({
-  selector: 'app-login',
-  standalone: true,
-  imports: [FormsModule],
-  template: `
+    selector: 'app-login',
+    standalone: true,
+    imports: [FormsModule],
+    template: `
     <main class="login-page">
       <section class="login-card">
         <h1>Lebnani</h1>
@@ -42,11 +42,14 @@ import { AuthService } from '../../core/auth.service';
           <button type="submit" [disabled]="loading">
             {{ loading ? 'Connexion...' : 'Se connecter' }}
           </button>
+          <button type="button" class="secondary" (click)="goToRegister()">
+            Créer un compte
+        </button>
         </form>
       </section>
     </main>
   `,
-  styles: [`
+    styles: [`
     .login-page {
       min-height: 100vh;
       display: grid;
@@ -107,7 +110,12 @@ import { AuthService } from '../../core/auth.service';
       opacity: 0.7;
       cursor: default;
     }
-
+    
+    .secondary {
+        background: #eef4ed;
+        color: #253d2c;
+        }
+    
     .error {
       color: #b00020;
       margin: 0;
@@ -116,30 +124,34 @@ import { AuthService } from '../../core/auth.service';
   `]
 })
 export class LoginComponent {
-  email = 'test@test.com';
-  password = '123456';
-  loading = false;
-  errorMessage = '';
+    email = 'test@test.com';
+    password = '123456';
+    loading = false;
+    errorMessage = '';
 
-  constructor(
-    private readonly apiService: ApiService,
-    private readonly authService: AuthService,
-    private readonly router: Router
-  ) {}
+    constructor(
+        private readonly apiService: ApiService,
+        private readonly authService: AuthService,
+        private readonly router: Router
+    ) { }
 
-  login(): void {
-    this.loading = true;
-    this.errorMessage = '';
+    login(): void {
+        this.loading = true;
+        this.errorMessage = '';
 
-    this.apiService.login(this.email, this.password).subscribe({
-      next: response => {
-        this.authService.saveToken(response.accessToken);
-        this.router.navigateByUrl('/course');
-      },
-      error: () => {
-        this.errorMessage = 'Connexion impossible. Vérifie tes identifiants.';
-        this.loading = false;
-      }
-    });
-  }
+        this.apiService.login(this.email, this.password).subscribe({
+            next: response => {
+                this.authService.saveToken(response.accessToken);
+                this.router.navigateByUrl('/course');
+            },
+            error: () => {
+                this.errorMessage = 'Connexion impossible. Vérifie tes identifiants.';
+                this.loading = false;
+            }
+        });
+    }
+
+    goToRegister(): void {
+        this.router.navigateByUrl('/register');
+    }
 }
