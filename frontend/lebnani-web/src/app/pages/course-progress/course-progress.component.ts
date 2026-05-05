@@ -4,16 +4,16 @@ import { ApiService, CourseProgressResponse } from '../../core/api.service';
 import { AuthService } from '../../core/auth.service';
 
 interface UserProgressResponse {
-  totalXp: number;
-  completedLessons: number;
-  currentStreak: number;
-  longestStreak: number;
+    totalXp: number;
+    completedLessons: number;
+    currentStreak: number;
+    longestStreak: number;
 }
 
 @Component({
-  selector: 'app-course-progress',
-  standalone: true,
-  template: `
+    selector: 'app-course-progress',
+    standalone: true,
+    template: `
     <main class="course-page">
       <header class="topbar">
         <div>
@@ -21,10 +21,11 @@ interface UserProgressResponse {
           <p>Ton parcours de libanais parlé</p>
         </div>
 
-        <div class="topbar-actions">
-          <button type="button" class="secondary" (click)="openReview()">Révisions</button>
-          <button type="button" (click)="logout()">Déconnexion</button>
-        </div>
+    <div class="topbar-actions">
+    <button type="button" class="secondary" (click)="openAdminImport()">Import JSON</button>
+    <button type="button" class="secondary" (click)="openReview()">Révisions</button>
+    <button type="button" (click)="logout()">Déconnexion</button>
+    </div>
       </header>
 
       @if (loading) {
@@ -102,7 +103,7 @@ interface UserProgressResponse {
       }
     </main>
   `,
-  styles: [`
+    styles: [`
     .course-page {
       min-height: 100vh;
       padding: 32px;
@@ -292,65 +293,69 @@ interface UserProgressResponse {
   `]
 })
 export class CourseProgressComponent implements OnInit {
-  progress: CourseProgressResponse | null = null;
-  userProgress: UserProgressResponse | null = null;
+    progress: CourseProgressResponse | null = null;
+    userProgress: UserProgressResponse | null = null;
 
-  loading = true;
-  errorMessage = '';
+    loading = true;
+    errorMessage = '';
 
-  constructor(
-    private readonly apiService: ApiService,
-    private readonly authService: AuthService,
-    private readonly router: Router
-  ) {}
+    constructor(
+        private readonly apiService: ApiService,
+        private readonly authService: AuthService,
+        private readonly router: Router
+    ) { }
 
-  ngOnInit(): void {
-    if (!this.authService.isLoggedIn()) {
-      this.router.navigateByUrl('/login');
-      return;
+    ngOnInit(): void {
+        if (!this.authService.isLoggedIn()) {
+            this.router.navigateByUrl('/login');
+            return;
+        }
+
+        this.loadDashboard();
     }
 
-    this.loadDashboard();
-  }
+    loadDashboard(): void {
+        this.loading = true;
 
-  loadDashboard(): void {
-    this.loading = true;
+        this.apiService.getCourseProgress(1).subscribe({
+            next: progress => {
+                this.progress = progress;
+                this.loadUserProgress();
+            },
+            error: () => {
+                this.errorMessage = 'Impossible de charger la progression.';
+                this.loading = false;
+            }
+        });
+    }
 
-    this.apiService.getCourseProgress(1).subscribe({
-      next: progress => {
-        this.progress = progress;
-        this.loadUserProgress();
-      },
-      error: () => {
-        this.errorMessage = 'Impossible de charger la progression.';
-        this.loading = false;
-      }
-    });
-  }
+    loadUserProgress(): void {
+        this.apiService.getUserProgress().subscribe({
+            next: progress => {
+                this.userProgress = progress;
+                this.loading = false;
+            },
+            error: () => {
+                this.errorMessage = 'Impossible de charger les statistiques.';
+                this.loading = false;
+            }
+        });
+    }
 
-  loadUserProgress(): void {
-    this.apiService.getUserProgress().subscribe({
-      next: progress => {
-        this.userProgress = progress;
-        this.loading = false;
-      },
-      error: () => {
-        this.errorMessage = 'Impossible de charger les statistiques.';
-        this.loading = false;
-      }
-    });
-  }
+    openLesson(lessonId: number): void {
+        this.router.navigateByUrl('/lesson/' + lessonId);
+    }
 
-  openLesson(lessonId: number): void {
-    this.router.navigateByUrl('/lesson/' + lessonId);
-  }
+    openReview(): void {
+        this.router.navigateByUrl('/review');
+    }
 
-  openReview(): void {
-    this.router.navigateByUrl('/review');
-  }
+    openAdminImport(): void {
+        this.router.navigateByUrl('/admin/import');
+    }
 
-  logout(): void {
-    this.authService.logout();
-    this.router.navigateByUrl('/login');
-  }
+    logout(): void {
+        this.authService.logout();
+        this.router.navigateByUrl('/login');
+    }
 }

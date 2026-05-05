@@ -141,6 +141,14 @@ export class ApiService {
         );
     }
 
+    importContent(courseId: number, content: unknown): Observable<any> {
+        return this.http.post<any>(
+            `/api/admin/courses/${courseId}/content/import`,
+            content,
+            { headers: this.authHeaders() }
+        );
+    }
+    
     answerReviewItem(reviewItemId: number, answer: string): Observable<any> {
         return this.http.post<any>(
             `/api/users/me/review-items/${reviewItemId}/answer`,
