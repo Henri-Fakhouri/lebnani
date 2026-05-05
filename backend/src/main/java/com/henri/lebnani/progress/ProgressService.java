@@ -6,6 +6,8 @@ import com.henri.lebnani.user.User;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDate;
+
 @Service
 public class ProgressService {
 
@@ -13,13 +15,16 @@ public class ProgressService {
 
     private final XpEventRepository xpEventRepository;
     private final UserLessonProgressRepository userLessonProgressRepository;
+    private final StreakStateRepository streakStateRepository;
 
     public ProgressService(
             XpEventRepository xpEventRepository,
-            UserLessonProgressRepository userLessonProgressRepository
+            UserLessonProgressRepository userLessonProgressRepository,
+            StreakStateRepository streakStateRepository
     ) {
         this.xpEventRepository = xpEventRepository;
         this.userLessonProgressRepository = userLessonProgressRepository;
+        this.streakStateRepository = streakStateRepository;
     }
 
     @Transactional
@@ -47,6 +52,17 @@ public class ProgressService {
         progress.updateCompletion(scorePercent);
         userLessonProgressRepository.save(progress);
 
+        StreakState streakState = streakStateRepository
+                .findByUserId(user.getId())
+                .orElseGet(() -> {
+                    StreakState newState = new StreakState();
+                    newState.setUser(user);
+                    return newState;
+                });
+
+        streakState.registerActivity(LocalDate.now());
+        streakStateRepository.save(streakState);
+
         return xpAmount;
     }
 
@@ -55,7 +71,19 @@ public class ProgressService {
         int totalXp = xpEventRepository.sumXpByUserId(user.getId());
         long completedLessons = userLessonProgressRepository.countByUserIdAndCompletedTrue(user.getId());
 
-        return new UserProgressResponse(totalXp, completedLessons);
+        StreakState streakState = streakStateRepository
+                .findByUserId(user.getId())
+                .orElse(null);
+
+        int currentStreak = streakState == null ? 0 : streakState.getCurrentStreak();
+        int longestStreak = streakState == null ? 0 : streakState.getLongestStreak();
+
+        return new UserProgressResponse(
+                totalXp,
+                completedLessons,
+                currentStreak,
+                longestStreak
+        );
     }
 
     private int calculateXp(int scorePercent) {
