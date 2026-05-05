@@ -1,23 +1,28 @@
 package com.henri.lebnani.progress;
 
-import com.henri.lebnani.attempt.LessonAttempt;
-import com.henri.lebnani.common.BusinessException;
-import com.henri.lebnani.course.*;
-import com.henri.lebnani.user.User;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-
 import java.time.LocalDate;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import com.henri.lebnani.attempt.LessonAttempt;
+import com.henri.lebnani.common.BusinessException;
+import com.henri.lebnani.course.Course;
+import com.henri.lebnani.course.CourseRepository;
+import com.henri.lebnani.course.CourseUnit;
+import com.henri.lebnani.course.CourseUnitRepository;
+import com.henri.lebnani.course.Lesson;
+import com.henri.lebnani.course.LessonRepository;
+import com.henri.lebnani.user.User;
+
 @Service
 public class ProgressService {
 
-    private static final int BASE_LESSON_XP = 10;
-
+    private final XpCalculator xpCalculator;
     private final XpEventRepository xpEventRepository;
     private final UserLessonProgressRepository userLessonProgressRepository;
     private final StreakStateRepository streakStateRepository;
@@ -26,12 +31,15 @@ public class ProgressService {
     private final LessonRepository lessonRepository;
 
     public ProgressService(
+            XpCalculator xpCalculator,
             XpEventRepository xpEventRepository,
             UserLessonProgressRepository userLessonProgressRepository,
             StreakStateRepository streakStateRepository,
             CourseRepository courseRepository,
             CourseUnitRepository courseUnitRepository,
-            LessonRepository lessonRepository) {
+            LessonRepository lessonRepository
+    ) {
+        this.xpCalculator = xpCalculator;
         this.xpEventRepository = xpEventRepository;
         this.userLessonProgressRepository = userLessonProgressRepository;
         this.streakStateRepository = streakStateRepository;
@@ -50,7 +58,9 @@ public class ProgressService {
 
         boolean alreadyCompleted = existingProgress != null && existingProgress.isCompleted();
 
-        int xpAmount = alreadyCompleted ? 0 : calculateXp(scorePercent);
+        int xpAmount = alreadyCompleted
+                ? 0
+                : xpCalculator.calculateLessonCompletionXp(scorePercent);
 
         if (xpAmount > 0) {
             XpEvent xpEvent = new XpEvent();
@@ -103,7 +113,8 @@ public class ProgressService {
                 totalXp,
                 completedLessons,
                 currentStreak,
-                longestStreak);
+                longestStreak
+        );
     }
 
     @Transactional(readOnly = true)
@@ -119,7 +130,8 @@ public class ProgressService {
                 .stream()
                 .collect(Collectors.toMap(
                         progress -> progress.getLesson().getId(),
-                        progress -> progress));
+                        progress -> progress
+                ));
 
         Map<Long, List<Lesson>> lessonsByUnitId = lessons.stream()
                 .collect(Collectors.groupingBy(lesson -> lesson.getUnit().getId()));
@@ -136,7 +148,8 @@ public class ProgressService {
                                 UserLessonProgress lessonProgress = progressByLessonId.get(lesson.getId());
 
                                 boolean completed = lessonProgress != null && lessonProgress.isCompleted();
-                                int bestScorePercent = lessonProgress == null ? 0
+                                int bestScorePercent = lessonProgress == null
+                                        ? 0
                                         : lessonProgress.getBestScorePercent();
 
                                 return new LessonProgressResponse(
@@ -144,7 +157,8 @@ public class ProgressService {
                                         lesson.getTitle(),
                                         lesson.getDisplayOrder(),
                                         completed,
-                                        bestScorePercent);
+                                        bestScorePercent
+                                );
                             })
                             .toList();
 
@@ -158,7 +172,8 @@ public class ProgressService {
                             unit.getDisplayOrder(),
                             lessonResponses.size(),
                             completedLessons,
-                            lessonResponses);
+                            lessonResponses
+                    );
                 })
                 .toList();
 
@@ -172,22 +187,7 @@ public class ProgressService {
                 course.getTitle(),
                 totalLessons,
                 completedLessons,
-                unitResponses);
-    }
-
-    private int calculateXp(int scorePercent) {
-        if (scorePercent >= 100) {
-            return BASE_LESSON_XP;
-        }
-
-        if (scorePercent >= 70) {
-            return 7;
-        }
-
-        if (scorePercent >= 40) {
-            return 4;
-        }
-
-        return 1;
+                unitResponses
+        );
     }
 }
