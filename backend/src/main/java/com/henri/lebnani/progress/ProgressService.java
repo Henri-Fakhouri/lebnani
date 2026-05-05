@@ -120,14 +120,14 @@ public class ProgressService {
 
     @Transactional(readOnly = true)
     public CourseProgressResponse getCourseProgress(Long courseId, User user) {
-        Course course = courseRepository.findById(courseId)
+        Course course = courseRepository.findById(Objects.requireNonNull(courseId))
                 .orElseThrow(() -> new BusinessException("COURSE_NOT_FOUND", "Course not found."));
 
         List<CourseUnit> units = courseUnitRepository.findByCourseIdAndPublishedTrueOrderByDisplayOrderAsc(courseId);
         List<Lesson> lessons = lessonRepository
                 .findByUnitCourseIdAndPublishedTrueOrderByUnitDisplayOrderAscDisplayOrderAsc(courseId);
 
-        Map<Long, UserLessonProgress> progressByLessonId = userLessonProgressRepository.findByUserId(Objects.requireNonNull(user.getId()))
+        Map<Long, UserLessonProgress> progressByLessonId = userLessonProgressRepository.findByUserId(user.getId())
                 .stream()
                 .collect(Collectors.toMap(
                         progress -> progress.getLesson().getId(),

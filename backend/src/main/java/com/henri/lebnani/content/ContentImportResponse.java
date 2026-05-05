@@ -4,28 +4,12 @@ public class ContentImportResponse {
 
     private final Long importRunId;
     private final Long courseId;
-    private final int unitsCreated;
-    private final int lessonsCreated;
-    private final int exercisesCreated;
-    private final int optionsCreated;
-    private final int acceptedAnswersCreated;
+    private final ImportCounts counts;
 
-    public ContentImportResponse(
-            Long importRunId,
-            Long courseId,
-            int unitsCreated,
-            int lessonsCreated,
-            int exercisesCreated,
-            int optionsCreated,
-            int acceptedAnswersCreated
-    ) {
+    public ContentImportResponse(Long importRunId, Long courseId, ImportCounts counts) {
         this.importRunId = importRunId;
         this.courseId = courseId;
-        this.unitsCreated = unitsCreated;
-        this.lessonsCreated = lessonsCreated;
-        this.exercisesCreated = exercisesCreated;
-        this.optionsCreated = optionsCreated;
-        this.acceptedAnswersCreated = acceptedAnswersCreated;
+        this.counts = counts;
     }
 
     public Long getImportRunId() {
@@ -37,22 +21,36 @@ public class ContentImportResponse {
     }
 
     public int getUnitsCreated() {
-        return unitsCreated;
+        return counts.unitsCreated();
     }
 
     public int getLessonsCreated() {
-        return lessonsCreated;
+        return counts.lessonsCreated();
+    }
+
+    public int getContentBlocksCreated() {
+        return counts.contentBlocksCreated();
     }
 
     public int getExercisesCreated() {
-        return exercisesCreated;
+        return counts.exercisesCreated();
     }
 
     public int getOptionsCreated() {
-        return optionsCreated;
+        return counts.optionsCreated();
     }
 
     public int getAcceptedAnswersCreated() {
-        return acceptedAnswersCreated;
+        return counts.acceptedAnswersCreated();
+    }
+
+    public record ImportCounts(
+            int unitsCreated,
+            int lessonsCreated,
+            int contentBlocksCreated,
+            int exercisesCreated,
+            int optionsCreated,
+            int acceptedAnswersCreated
+    ) {
     }
 }

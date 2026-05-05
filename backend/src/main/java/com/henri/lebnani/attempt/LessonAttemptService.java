@@ -56,17 +56,17 @@ public class LessonAttemptService {
         LessonAttempt savedAttempt = lessonAttemptRepository.save(attempt);
 
         return new StartLessonAttemptResponse(
-                Objects.requireNonNull(savedAttempt.getId()),
-                Objects.requireNonNull(lesson.getId()),
+                savedAttempt.getId(),
+                lesson.getId(),
                 savedAttempt.getStatus().name());
     }
 
     @Transactional
     public AnswerSubmissionResponse submitAnswer(Long attemptId, AnswerSubmissionRequest request, User user) {
-        LessonAttempt attempt = lessonAttemptRepository.findById(attemptId)
+        LessonAttempt attempt = lessonAttemptRepository.findById(Objects.requireNonNull(attemptId))
                 .orElseThrow(() -> new BusinessException("ATTEMPT_NOT_FOUND", "Lesson attempt not found."));
 
-        if (!attempt.getUser().getId().equals(Objects.requireNonNull(user.getId()))) {
+        if (!attempt.getUser().getId().equals(user.getId())) {
             throw new BusinessException("ATTEMPT_FORBIDDEN", "This lesson attempt does not belong to you.");
         }
 
@@ -74,13 +74,13 @@ public class LessonAttemptService {
             throw new BusinessException("ATTEMPT_NOT_IN_PROGRESS", "This lesson attempt is not in progress.");
         }
 
-        if (exerciseAttemptRepository.existsByLessonAttemptIdAndExerciseId(Objects.requireNonNull(attempt.getId()), request.getExerciseId())) {
+        if (exerciseAttemptRepository.existsByLessonAttemptIdAndExerciseId(attempt.getId(), request.getExerciseId())) {
             throw new BusinessException(
                     "EXERCISE_ALREADY_ANSWERED",
                     "This exercise has already been answered in this lesson attempt.");
         }
 
-        Exercise exercise = exerciseRepository.findById(request.getExerciseId())
+        Exercise exercise = exerciseRepository.findById(Objects.requireNonNull(request.getExerciseId()))
                 .orElseThrow(() -> new BusinessException("EXERCISE_NOT_FOUND", "Exercise not found."));
 
         if (!exercise.getLesson().getId().equals(attempt.getLesson().getId())) {
@@ -132,7 +132,7 @@ public class LessonAttemptService {
                     "selectedOptionId is required for multiple choice exercises.");
         }
 
-        ExerciseOption selectedOption = exerciseOptionRepository.findById(request.getSelectedOptionId())
+        ExerciseOption selectedOption = exerciseOptionRepository.findById(Objects.requireNonNull(request.getSelectedOptionId()))
                 .orElseThrow(() -> new BusinessException("OPTION_NOT_FOUND", "Selected option not found."));
 
         if (!selectedOption.getExercise().getId().equals(exercise.getId())) {
@@ -142,7 +142,7 @@ public class LessonAttemptService {
         return new AnswerValidationResult(
                 selectedOption.getTextValue(),
                 answerNormalizer.normalize(selectedOption.getTextValue()),
-                Objects.requireNonNull(selectedOption.getId()),
+                selectedOption.getId(),
                 selectedOption.isCorrect(),
                 exercise.getCorrectAnswer());
     }
@@ -177,10 +177,10 @@ public class LessonAttemptService {
 
     @Transactional
     public CompleteLessonAttemptResponse completeAttempt(Long attemptId, User user) {
-        LessonAttempt attempt = lessonAttemptRepository.findById(attemptId)
+        LessonAttempt attempt = lessonAttemptRepository.findById(Objects.requireNonNull(attemptId))
                 .orElseThrow(() -> new BusinessException("ATTEMPT_NOT_FOUND", "Lesson attempt not found."));
 
-        if (!attempt.getUser().getId().equals(Objects.requireNonNull(user.getId()))) {
+        if (!attempt.getUser().getId().equals(user.getId())) {
             throw new BusinessException("ATTEMPT_FORBIDDEN", "This lesson attempt does not belong to you.");
         }
 

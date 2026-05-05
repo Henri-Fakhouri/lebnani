@@ -58,6 +58,9 @@ public class ContentImportRequest {
         @NotNull
         private Integer displayOrder;
 
+        @Valid
+        private List<ContentBlockImport> contentBlocks = List.of();
+
         @NotEmpty
         @Valid
         private List<ExerciseImport> exercises;
@@ -74,8 +77,36 @@ public class ContentImportRequest {
             return displayOrder;
         }
 
+        public List<ContentBlockImport> getContentBlocks() {
+            return contentBlocks == null ? List.of() : contentBlocks;
+        }
+
         public List<ExerciseImport> getExercises() {
             return exercises;
+        }
+    }
+
+    public static class ContentBlockImport {
+
+        @NotBlank
+        private String type;
+
+        @NotBlank
+        private String content;
+
+        @NotNull
+        private Integer displayOrder;
+
+        public String getType() {
+            return type;
+        }
+
+        public String getContent() {
+            return content;
+        }
+
+        public Integer getDisplayOrder() {
+            return displayOrder;
         }
     }
 
