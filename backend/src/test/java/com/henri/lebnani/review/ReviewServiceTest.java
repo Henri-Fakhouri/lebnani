@@ -4,9 +4,11 @@ import com.henri.lebnani.attempt.AnswerNormalizer;
 import com.henri.lebnani.attempt.ExerciseAttempt;
 import com.henri.lebnani.common.BusinessException;
 import com.henri.lebnani.exercise.Exercise;
+import com.henri.lebnani.exercise.ExerciseType;
 import com.henri.lebnani.user.User;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -19,11 +21,10 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.ArgumentMatchers.isA;
-import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+@SuppressWarnings("null")
 @ExtendWith(MockitoExtension.class)
 class ReviewServiceTest {
 
@@ -34,35 +35,52 @@ class ReviewServiceTest {
     // ── registerWrongAnswer ──────────────────────────────────────────────────
 
     @Test
-    @SuppressWarnings("null")
     void registerWrongAnswer_creates_new_review_item_when_none_exists() {
         User user = buildUser(1L);
-        Exercise exercise = buildExercise(10L);
-        ExerciseAttempt attempt = mock(ExerciseAttempt.class);
+        Exercise exercise = buildExercise(10L, "Correct answer");
+        ExerciseAttempt attempt = new ExerciseAttempt();
 
         when(reviewItemRepository.findByUserIdAndExerciseId(1L, 10L)).thenReturn(Optional.empty());
-        when(reviewItemRepository.save(isA(ReviewItem.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(reviewItemRepository.save(any(ReviewItem.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         reviewService.registerWrongAnswer(user, exercise, attempt);
 
-        verify(reviewItemRepository).save(any(ReviewItem.class));
+        ArgumentCaptor<ReviewItem> captor = ArgumentCaptor.forClass(ReviewItem.class);
+        verify(reviewItemRepository).save(captor.capture());
+
+        ReviewItem saved = captor.getValue();
+        assertThat(saved.getUser()).isEqualTo(user);
+        assertThat(saved.getExercise()).isEqualTo(exercise);
+        assertThat(saved.getSourceExerciseAttempt()).isEqualTo(attempt);
+        assertThat(saved.getStatus()).isEqualTo(ReviewItemStatus.DUE);
+        assertThat(saved.getFailureCount()).isEqualTo(1);
+        assertThat(saved.getSuccessCount()).isZero();
+        assertThat(saved.getNextReviewAt()).isNotNull();
+        assertThat(saved.getCreatedAt()).isNotNull();
+        assertThat(saved.getUpdatedAt()).isNotNull();
     }
 
     @Test
-    @SuppressWarnings("null")
     void registerWrongAnswer_registers_failure_when_item_exists() {
         User user = buildUser(1L);
-        Exercise exercise = buildExercise(10L);
-        ExerciseAttempt attempt = mock(ExerciseAttempt.class);
+        Exercise exercise = buildExercise(10L, "Correct answer");
+        ExerciseAttempt firstAttempt = new ExerciseAttempt();
+        ExerciseAttempt secondAttempt = new ExerciseAttempt();
 
-        ReviewItem existing = mock(ReviewItem.class);
-        when(existing.getId()).thenReturn(5L);
+        ReviewItem existing = new ReviewItem();
+        setId(existing, 5L);
+        existing.createForWrongAnswer(user, exercise, firstAttempt);
+
         when(reviewItemRepository.findByUserIdAndExerciseId(1L, 10L)).thenReturn(Optional.of(existing));
-        when(reviewItemRepository.save(isA(ReviewItem.class))).thenReturn(existing);
+        when(reviewItemRepository.save(any(ReviewItem.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
-        reviewService.registerWrongAnswer(user, exercise, attempt);
+        reviewService.registerWrongAnswer(user, exercise, secondAttempt);
 
-        verify(existing).registerFailure(attempt);
+        assertThat(existing.getSourceExerciseAttempt()).isEqualTo(secondAttempt);
+        assertThat(existing.getStatus()).isEqualTo(ReviewItemStatus.DUE);
+        assertThat(existing.getFailureCount()).isEqualTo(2);
+        assertThat(existing.getSuccessCount()).isZero();
+
         verify(reviewItemRepository).save(existing);
     }
 
@@ -81,41 +99,105 @@ class ReviewServiceTest {
         assertThat(result).isEmpty();
     }
 
+    @Test
+    void getDueReviewItems_maps_due_items() {
+        User user = buildUser(1L);
+        Exercise exercise = buildExercise(10L, "Correct answer");
+
+        ReviewItem item = new ReviewItem();
+        setId(item, 5L);
+        item.createForWrongAnswer(user, exercise, new ExerciseAttempt());
+
+        when(reviewItemRepository
+                .findByUserIdAndStatusAndNextReviewAtLessThanEqualOrderByNextReviewAtAsc(
+                        eq(1L), eq(ReviewItemStatus.DUE), any(Instant.class)))
+                .thenReturn(List.of(item));
+
+        List<ReviewItemResponse> result = reviewService.getDueReviewItems(user);
+
+        assertThat(result).hasSize(1);
+        assertThat(result.get(0).getId()).isEqualTo(5L);
+        assertThat(result.get(0).getExerciseId()).isEqualTo(10L);
+        assertThat(result.get(0).getExerciseType()).isEqualTo("TYPE_ANSWER");
+        assertThat(result.get(0).getPromptFr()).isEqualTo("Prompt");
+        assertThat(result.get(0).getOptions()).isEmpty();
+        assertThat(result.get(0).getStatus()).isEqualTo("DUE");
+        assertThat(result.get(0).getFailureCount()).isEqualTo(1);
+        assertThat(result.get(0).getSuccessCount()).isZero();
+        assertThat(result.get(0).getNextReviewAt()).isNotNull();
+    }
+
     // ── answerReviewItem ─────────────────────────────────────────────────────
 
     @Test
-    @SuppressWarnings("null")
-    void answerReviewItem_correct_answer_returns_response() {
+    void answerReviewItem_correct_answer_returns_response_and_schedules_item() {
         User user = buildUser(1L);
-        Exercise exercise = buildExercise(10L);
-        when(exercise.getCorrectAnswer()).thenReturn("baddi rou7");
+        Exercise exercise = buildExercise(10L, "baddi rou7");
 
-        ReviewItem item = mock(ReviewItem.class);
-        when(item.getUser()).thenReturn(user);
-        when(item.getStatus()).thenReturn(ReviewItemStatus.DUE);
-        when(item.getExercise()).thenReturn(exercise);
-        when(item.getId()).thenReturn(5L);
-        when(item.getFailureCount()).thenReturn(0);
-        when(item.getSuccessCount()).thenReturn(1);
-        when(item.getNextReviewAt()).thenReturn(Instant.now());
+        ReviewItem item = new ReviewItem();
+        setId(item, 5L);
+        item.createForWrongAnswer(user, exercise, new ExerciseAttempt());
 
-        ReviewAnswerRequest request = mock(ReviewAnswerRequest.class);
-        when(request.getAnswer()).thenReturn("baddi rou7");
+        ReviewAnswerRequest request = buildReviewAnswerRequest("Baddi Rou7");
 
         when(reviewItemRepository.findByIdWithExercise(5L)).thenReturn(Optional.of(item));
+        when(answerNormalizer.normalize("Baddi Rou7")).thenReturn("baddi rou7");
         when(answerNormalizer.normalize("baddi rou7")).thenReturn("baddi rou7");
-        when(reviewItemRepository.save(isA(ReviewItem.class))).thenReturn(item);
+        when(reviewItemRepository.save(any(ReviewItem.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         ReviewAnswerResponse response = reviewService.answerReviewItem(5L, request, user);
 
-        assertThat(response).isNotNull();
+        assertThat(response.reviewItemId()).isEqualTo(5L);
+        assertThat(response.exerciseId()).isEqualTo(10L);
+        assertThat(response.submittedAnswer()).isEqualTo("Baddi Rou7");
+        assertThat(response.normalizedAnswer()).isEqualTo("baddi rou7");
         assertThat(response.correct()).isTrue();
+        assertThat(response.expectedAnswer()).isEqualTo("baddi rou7");
+        assertThat(response.status()).isEqualTo("SCHEDULED");
+        assertThat(response.failureCount()).isEqualTo(1);
+        assertThat(response.successCount()).isEqualTo(1);
+        assertThat(response.nextReviewAt()).isNotNull();
+
+        verify(reviewItemRepository).save(item);
+    }
+
+    @Test
+    void answerReviewItem_wrong_answer_returns_response_and_keeps_item_due() {
+        User user = buildUser(1L);
+        Exercise exercise = buildExercise(10L, "baddi rou7");
+
+        ReviewItem item = new ReviewItem();
+        setId(item, 5L);
+        item.createForWrongAnswer(user, exercise, new ExerciseAttempt());
+
+        ReviewAnswerRequest request = buildReviewAnswerRequest("wrong");
+
+        when(reviewItemRepository.findByIdWithExercise(5L)).thenReturn(Optional.of(item));
+        when(answerNormalizer.normalize("wrong")).thenReturn("wrong");
+        when(answerNormalizer.normalize("baddi rou7")).thenReturn("baddi rou7");
+        when(reviewItemRepository.save(any(ReviewItem.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        ReviewAnswerResponse response = reviewService.answerReviewItem(5L, request, user);
+
+        assertThat(response.reviewItemId()).isEqualTo(5L);
+        assertThat(response.exerciseId()).isEqualTo(10L);
+        assertThat(response.submittedAnswer()).isEqualTo("wrong");
+        assertThat(response.normalizedAnswer()).isEqualTo("wrong");
+        assertThat(response.correct()).isFalse();
+        assertThat(response.expectedAnswer()).isEqualTo("baddi rou7");
+        assertThat(response.status()).isEqualTo("DUE");
+        assertThat(response.failureCount()).isEqualTo(2);
+        assertThat(response.successCount()).isZero();
+        assertThat(response.nextReviewAt()).isNotNull();
+
+        verify(reviewItemRepository).save(item);
     }
 
     @Test
     void answerReviewItem_throws_when_item_not_found() {
         User user = buildUser(1L);
-        ReviewAnswerRequest request = mock(ReviewAnswerRequest.class);
+        ReviewAnswerRequest request = buildReviewAnswerRequest("answer");
+
         when(reviewItemRepository.findByIdWithExercise(99L)).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> reviewService.answerReviewItem(99L, request, user))
@@ -127,9 +209,14 @@ class ReviewServiceTest {
     void answerReviewItem_throws_when_item_belongs_to_other_user() {
         User owner = buildUser(1L);
         User other = buildUser(2L);
-        ReviewAnswerRequest request = mock(ReviewAnswerRequest.class);
-        ReviewItem item = mock(ReviewItem.class);
-        when(item.getUser()).thenReturn(owner);
+        Exercise exercise = buildExercise(10L, "answer");
+
+        ReviewItem item = new ReviewItem();
+        setId(item, 5L);
+        item.createForWrongAnswer(owner, exercise, new ExerciseAttempt());
+
+        ReviewAnswerRequest request = buildReviewAnswerRequest("answer");
+
         when(reviewItemRepository.findByIdWithExercise(5L)).thenReturn(Optional.of(item));
 
         assertThatThrownBy(() -> reviewService.answerReviewItem(5L, request, other))
@@ -140,10 +227,17 @@ class ReviewServiceTest {
     @Test
     void answerReviewItem_throws_when_item_already_mastered() {
         User user = buildUser(1L);
-        ReviewAnswerRequest request = mock(ReviewAnswerRequest.class);
-        ReviewItem item = mock(ReviewItem.class);
-        when(item.getUser()).thenReturn(user);
-        when(item.getStatus()).thenReturn(ReviewItemStatus.MASTERED);
+        Exercise exercise = buildExercise(10L, "answer");
+
+        ReviewItem item = new ReviewItem();
+        setId(item, 5L);
+        item.createForWrongAnswer(user, exercise, new ExerciseAttempt());
+        item.registerReviewAnswer(true);
+        item.registerReviewAnswer(true);
+        item.registerReviewAnswer(true);
+
+        ReviewAnswerRequest request = buildReviewAnswerRequest("answer");
+
         when(reviewItemRepository.findByIdWithExercise(5L)).thenReturn(Optional.of(item));
 
         assertThatThrownBy(() -> reviewService.answerReviewItem(5L, request, user))
@@ -159,17 +253,32 @@ class ReviewServiceTest {
         return user;
     }
 
-    private Exercise buildExercise(Long id) {
-        Exercise exercise = mock(Exercise.class);
-        when(exercise.getId()).thenReturn(id);
+    private Exercise buildExercise(Long id, String correctAnswer) {
+        Exercise exercise = new Exercise();
+        setId(exercise, id);
+        exercise.setType(ExerciseType.TYPE_ANSWER);
+        exercise.setPromptFr("Prompt");
+        exercise.setCorrectAnswer(correctAnswer);
+        exercise.setDisplayOrder(1);
+        exercise.setPublished(true);
         return exercise;
     }
 
+    private ReviewAnswerRequest buildReviewAnswerRequest(String answer) {
+        ReviewAnswerRequest request = new ReviewAnswerRequest();
+        setField(request, "answer", answer);
+        return request;
+    }
+
     private static void setId(Object entity, Long id) {
+        setField(entity, "id", id);
+    }
+
+    private static void setField(Object entity, String fieldName, Object value) {
         try {
-            var field = entity.getClass().getDeclaredField("id");
+            var field = entity.getClass().getDeclaredField(fieldName);
             field.setAccessible(true);
-            field.set(entity, id);
+            field.set(entity, value);
         } catch (Exception exception) {
             throw new RuntimeException(exception);
         }
