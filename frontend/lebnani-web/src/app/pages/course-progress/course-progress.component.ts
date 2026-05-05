@@ -3,6 +3,13 @@ import { Router } from '@angular/router';
 import { ApiService, CourseProgressResponse } from '../../core/api.service';
 import { AuthService } from '../../core/auth.service';
 
+interface UserProgressResponse {
+  totalXp: number;
+  completedLessons: number;
+  currentStreak: number;
+  longestStreak: number;
+}
+
 @Component({
   selector: 'app-course-progress',
   standalone: true,
@@ -29,15 +36,32 @@ import { AuthService } from '../../core/auth.service';
       }
 
       @if (progress) {
-        <section class="summary-card">
-          <strong>{{ progress.completedLessons }}/{{ progress.totalLessons }}</strong>
-          <span>leçons terminées</span>
+        <section class="summary-grid">
+          <article class="summary-card main-summary">
+            <strong>{{ progress.completedLessons }}/{{ progress.totalLessons }}</strong>
+            <span>leçons terminées</span>
 
-          <div class="progress-bar">
-            <div [style.width.%]="progress.completionPercent"></div>
-          </div>
+            <div class="progress-bar">
+              <div [style.width.%]="progress.completionPercent"></div>
+            </div>
 
-          <p>{{ progress.completionPercent }}% du cours terminé</p>
+            <p>{{ progress.completionPercent }}% du cours terminé</p>
+          </article>
+
+          <article class="summary-card stat-card">
+            <strong>{{ userProgress?.totalXp ?? 0 }}</strong>
+            <span>XP total</span>
+          </article>
+
+          <article class="summary-card stat-card">
+            <strong>{{ userProgress?.currentStreak ?? 0 }}</strong>
+            <span>jours de série</span>
+          </article>
+
+          <article class="summary-card stat-card">
+            <strong>{{ userProgress?.longestStreak ?? 0 }}</strong>
+            <span>meilleure série</span>
+          </article>
         </section>
 
         <section class="units">
@@ -61,11 +85,13 @@ import { AuthService } from '../../core/auth.service';
                   >
                     <div>
                       <strong>{{ lesson.title }}</strong>
-                      <small>Score: {{ lesson.bestScorePercent }}%</small>
+                      <small>
+                        {{ lesson.completed ? 'Meilleur score: ' + lesson.bestScorePercent + '%' : 'Nouvelle leçon' }}
+                      </small>
                     </div>
 
                     <span>
-                      {{ lesson.completed ? 'Terminé' : 'À faire' }}
+                      {{ lesson.completed ? 'Rejouer' : 'Commencer' }}
                     </span>
                   </button>
                 }
@@ -128,14 +154,25 @@ import { AuthService } from '../../core/auth.service';
       color: #253d2c;
     }
 
-    .summary-card,
-    .unit-card {
+    .summary-grid {
       max-width: 960px;
       margin: 0 auto 18px;
+      display: grid;
+      grid-template-columns: 2fr 1fr 1fr 1fr;
+      gap: 14px;
+    }
+
+    .summary-card,
+    .unit-card {
       background: white;
       border-radius: 18px;
       padding: 22px;
       box-shadow: 0 10px 28px rgba(0, 0, 0, 0.06);
+    }
+
+    .unit-card {
+      max-width: 960px;
+      margin: 0 auto 18px;
     }
 
     .summary-card strong {
@@ -146,6 +183,15 @@ import { AuthService } from '../../core/auth.service';
     .summary-card span,
     .summary-card p {
       color: #667064;
+    }
+
+    .stat-card {
+      display: grid;
+      align-content: center;
+    }
+
+    .stat-card strong {
+      color: #253d2c;
     }
 
     .progress-bar {
@@ -232,10 +278,23 @@ import { AuthService } from '../../core/auth.service';
     .error {
       color: #b00020;
     }
+
+    @media (max-width: 800px) {
+      .topbar {
+        align-items: flex-start;
+        flex-direction: column;
+      }
+
+      .summary-grid {
+        grid-template-columns: 1fr;
+      }
+    }
   `]
 })
 export class CourseProgressComponent implements OnInit {
   progress: CourseProgressResponse | null = null;
+  userProgress: UserProgressResponse | null = null;
+
   loading = true;
   errorMessage = '';
 
@@ -251,13 +310,32 @@ export class CourseProgressComponent implements OnInit {
       return;
     }
 
+    this.loadDashboard();
+  }
+
+  loadDashboard(): void {
+    this.loading = true;
+
     this.apiService.getCourseProgress(1).subscribe({
       next: progress => {
         this.progress = progress;
-        this.loading = false;
+        this.loadUserProgress();
       },
       error: () => {
         this.errorMessage = 'Impossible de charger la progression.';
+        this.loading = false;
+      }
+    });
+  }
+
+  loadUserProgress(): void {
+    this.apiService.getUserProgress().subscribe({
+      next: progress => {
+        this.userProgress = progress;
+        this.loading = false;
+      },
+      error: () => {
+        this.errorMessage = 'Impossible de charger les statistiques.';
         this.loading = false;
       }
     });

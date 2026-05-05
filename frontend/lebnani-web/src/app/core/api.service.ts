@@ -134,6 +134,13 @@ export class ApiService {
         });
     }
 
+    getUserProgress(): Observable<any> {
+        return this.http.get<any>(
+            '/api/users/me/progress',
+            { headers: this.authHeaders() }
+        );
+    }
+
     answerReviewItem(reviewItemId: number, answer: string): Observable<any> {
         return this.http.post<any>(
             `/api/users/me/review-items/${reviewItemId}/answer`,
