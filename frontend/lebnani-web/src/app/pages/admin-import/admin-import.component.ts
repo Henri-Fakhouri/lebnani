@@ -1,4 +1,4 @@
-import { Component } from '@angular/core';
+import { Component, OnInit } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import { ApiService } from '../../core/api.service';
@@ -192,7 +192,7 @@ import { AuthService } from '../../core/auth.service';
     }
   `]
 })
-export class AdminImportComponent {
+export class AdminImportComponent implements OnInit {
   jsonText = String.raw`{
   "units": [
     {
