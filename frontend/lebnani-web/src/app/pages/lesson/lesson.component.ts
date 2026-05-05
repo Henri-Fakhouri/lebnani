@@ -21,7 +21,38 @@ import { FormsModule } from '@angular/forms';
           <button type="button" (click)="backToCourse()">Retour au parcours</button>
         }
 
-        @if (!loading && exercise) {
+        @if (!loading && completed && result) {
+          <p class="progress">Leçon terminée</p>
+
+          <h1>Résultat</h1>
+
+          <div class="result-grid">
+            <div>
+              <strong>{{ result.scorePercent }}%</strong>
+              <span>score</span>
+            </div>
+
+            <div>
+              <strong>{{ result.correctAnswers }}/{{ result.totalExercises }}</strong>
+              <span>bonnes réponses</span>
+            </div>
+
+            <div>
+              <strong>{{ result.xpAwarded }}</strong>
+              <span>XP gagnés</span>
+            </div>
+          </div>
+
+          @if (result.xpAwarded === 0) {
+            <p class="hint">
+              Cette leçon était déjà terminée, donc aucun XP supplémentaire n’a été accordé.
+            </p>
+          }
+
+          <button type="button" (click)="backToCourse()">Retour au parcours</button>
+        }
+
+        @if (!loading && !completed && exercise) {
           <p class="progress">Question {{ index + 1 }} / {{ exercises.length }}</p>
 
           <h1>{{ exercise.promptFr }}</h1>
@@ -77,7 +108,7 @@ import { FormsModule } from '@angular/forms';
 
     .lesson-card {
       width: 100%;
-      max-width: 640px;
+      max-width: 680px;
       background: white;
       border-radius: 22px;
       padding: 32px;
@@ -145,6 +176,41 @@ import { FormsModule } from '@angular/forms';
     .error {
       color: #b00020;
     }
+
+    .result-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 12px;
+      margin-bottom: 20px;
+    }
+
+    .result-grid div {
+      border: 1px solid #eee8dc;
+      background: #fffdf8;
+      border-radius: 16px;
+      padding: 16px;
+    }
+
+    .result-grid strong {
+      display: block;
+      font-size: 28px;
+      color: #253d2c;
+    }
+
+    .result-grid span {
+      display: block;
+      margin-top: 4px;
+      color: #667064;
+      font-size: 14px;
+    }
+
+    .hint {
+      background: #fff7df;
+      color: #6a5320;
+      border-radius: 14px;
+      padding: 12px 14px;
+      margin-bottom: 18px;
+    }
   `]
 })
 export class LessonComponent implements OnInit {
@@ -162,6 +228,8 @@ export class LessonComponent implements OnInit {
   loading = true;
   answering = false;
   emptyLesson = false;
+  completed = false;
+  result: any = null;
   errorMessage = '';
 
   constructor(
@@ -213,7 +281,13 @@ export class LessonComponent implements OnInit {
 
     if (this.index >= this.exercises.length) {
       this.api.completeLesson(this.attemptId).subscribe({
-        next: () => this.router.navigateByUrl('/course'),
+        next: result => {
+          this.result = result;
+          this.completed = true;
+          this.exercise = null;
+          this.feedback = '';
+          this.answering = false;
+        },
         error: () => {
           this.answering = false;
           this.errorMessage = 'Impossible de terminer la leçon.';
