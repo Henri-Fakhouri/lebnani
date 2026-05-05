@@ -55,12 +55,20 @@ import { FormsModule } from '@angular/forms';
         @if (!loading && !completed && exercise) {
           <p class="progress">Question {{ index + 1 }} / {{ exercises.length }}</p>
 
+          <div class="question-progress-bar">
+            <div [style.width.%]="((index + 1) * 100) / exercises.length"></div>
+          </div>
+
           <h1>{{ exercise.promptFr }}</h1>
 
           @if (exercise.type === 'MULTIPLE_CHOICE') {
             <div class="options">
               @for (opt of exercise.options; track opt.id) {
-                <button type="button" (click)="answerMC(opt.id)" [disabled]="answering">
+                <button
+                  type="button"
+                  (click)="answerMC(opt.id)"
+                  [disabled]="answering || !!feedback"
+                >
                   {{ opt.text }}
                 </button>
               }
@@ -71,11 +79,15 @@ import { FormsModule } from '@angular/forms';
             <div class="typed-answer">
               <input
                 [(ngModel)]="textAnswer"
-                [disabled]="answering"
+                [disabled]="answering || !!feedback"
                 placeholder="Ta réponse"
                 (keyup.enter)="answerText()"
               />
-              <button type="button" (click)="answerText()" [disabled]="answering">
+              <button
+                type="button"
+                (click)="answerText()"
+                [disabled]="answering || !!feedback || !textAnswer.trim()"
+              >
                 Valider
               </button>
             </div>
@@ -85,6 +97,10 @@ import { FormsModule } from '@angular/forms';
             <p class="feedback" [class.correct]="lastCorrect" [class.wrong]="!lastCorrect">
               {{ feedback }}
             </p>
+
+            <button type="button" class="next-button" (click)="next()">
+              Continuer
+            </button>
           }
         }
 
@@ -128,6 +144,19 @@ import { FormsModule } from '@angular/forms';
     .progress {
       font-weight: 700;
       color: #253d2c;
+    }
+
+    .question-progress-bar {
+      height: 10px;
+      margin: 0 0 24px;
+      background: #e7e1d6;
+      border-radius: 999px;
+      overflow: hidden;
+    }
+
+    .question-progress-bar div {
+      height: 100%;
+      background: #253d2c;
     }
 
     .options {
@@ -178,6 +207,11 @@ import { FormsModule } from '@angular/forms';
     .feedback.wrong {
       color: #b00020;
       background: #fff1f1;
+    }
+
+    .next-button {
+      width: 100%;
+      margin-top: 12px;
     }
 
     .error {
@@ -310,7 +344,7 @@ export class LessonComponent implements OnInit {
   }
 
   answerMC(optionId: number): void {
-    if (this.answering) {
+    if (this.answering || this.feedback) {
       return;
     }
 
@@ -329,7 +363,7 @@ export class LessonComponent implements OnInit {
   }
 
   answerText(): void {
-    if (this.answering || !this.textAnswer.trim()) {
+    if (this.answering || this.feedback || !this.textAnswer.trim()) {
       return;
     }
 
@@ -352,8 +386,7 @@ export class LessonComponent implements OnInit {
     this.feedback = correct
       ? 'Correct'
       : `Incorrect. Réponse attendue : ${expectedAnswer}`;
-
-    setTimeout(() => this.next(), 1200);
+    this.answering = false;
   }
 
   backToCourse(): void {
