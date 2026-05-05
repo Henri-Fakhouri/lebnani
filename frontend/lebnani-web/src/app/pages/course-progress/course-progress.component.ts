@@ -1,0 +1,260 @@
+import { Component, OnInit } from '@angular/core';
+import { Router } from '@angular/router';
+import { ApiService, CourseProgressResponse } from '../../core/api.service';
+import { AuthService } from '../../core/auth.service';
+
+@Component({
+  selector: 'app-course-progress',
+  standalone: true,
+  template: `
+    <main class="course-page">
+      <header class="topbar">
+        <div>
+          <h1>{{ progress?.courseTitle || 'Lebnani' }}</h1>
+          <p>Ton parcours de libanais parlé</p>
+        </div>
+
+        <button type="button" (click)="logout()">Déconnexion</button>
+      </header>
+
+      @if (loading) {
+        <p class="state">Chargement...</p>
+      }
+
+      @if (errorMessage) {
+        <p class="state error">{{ errorMessage }}</p>
+      }
+
+      @if (progress) {
+        <section class="summary-card">
+          <strong>{{ progress.completedLessons }}/{{ progress.totalLessons }}</strong>
+          <span>leçons terminées</span>
+
+          <div class="progress-bar">
+            <div [style.width.%]="progress.completionPercent"></div>
+          </div>
+
+          <p>{{ progress.completionPercent }}% du cours terminé</p>
+        </section>
+
+        <section class="units">
+          @for (unit of progress.units; track unit.unitId) {
+            <article class="unit-card">
+              <div class="unit-header">
+                <div>
+                  <h2>{{ unit.displayOrder }}. {{ unit.title }}</h2>
+                  <p>{{ unit.completedLessons }}/{{ unit.totalLessons }} leçons terminées</p>
+                </div>
+                <span>{{ unit.completionPercent }}%</span>
+              </div>
+
+              <div class="lesson-list">
+                @for (lesson of unit.lessons; track lesson.lessonId) {
+                  <button
+                    type="button"
+                    class="lesson-row"
+                    [class.completed]="lesson.completed"
+                    (click)="openLesson(lesson.lessonId)"
+                  >
+                    <div>
+                      <strong>{{ lesson.title }}</strong>
+                      <small>Score: {{ lesson.bestScorePercent }}%</small>
+                    </div>
+
+                    <span>
+                      {{ lesson.completed ? 'Terminé' : 'À faire' }}
+                    </span>
+                  </button>
+                }
+              </div>
+            </article>
+          }
+        </section>
+      }
+    </main>
+  `,
+  styles: [`
+    .course-page {
+      min-height: 100vh;
+      padding: 32px;
+      background: #f5f2ea;
+      font-family: Arial, sans-serif;
+      color: #18251d;
+    }
+
+    .topbar {
+      max-width: 960px;
+      margin: 0 auto 24px;
+      display: flex;
+      justify-content: space-between;
+      gap: 16px;
+      align-items: center;
+    }
+
+    h1, h2, p {
+      margin: 0;
+    }
+
+    .topbar h1 {
+      font-size: 34px;
+    }
+
+    .topbar p {
+      color: #667064;
+      margin-top: 4px;
+    }
+
+    button {
+      padding: 10px 16px;
+      border: 0;
+      border-radius: 999px;
+      background: #253d2c;
+      color: white;
+      cursor: pointer;
+      font-weight: 700;
+    }
+
+    .summary-card,
+    .unit-card {
+      max-width: 960px;
+      margin: 0 auto 18px;
+      background: white;
+      border-radius: 18px;
+      padding: 22px;
+      box-shadow: 0 10px 28px rgba(0, 0, 0, 0.06);
+    }
+
+    .summary-card strong {
+      font-size: 32px;
+      display: block;
+    }
+
+    .summary-card span,
+    .summary-card p {
+      color: #667064;
+    }
+
+    .progress-bar {
+      height: 12px;
+      margin: 16px 0 8px;
+      background: #e7e1d6;
+      border-radius: 999px;
+      overflow: hidden;
+    }
+
+    .progress-bar div {
+      height: 100%;
+      background: #253d2c;
+    }
+
+    .unit-header {
+      display: flex;
+      justify-content: space-between;
+      gap: 16px;
+      align-items: start;
+      margin-bottom: 16px;
+    }
+
+    .unit-header p {
+      margin-top: 4px;
+      color: #667064;
+    }
+
+    .unit-header span {
+      background: #eef4ed;
+      color: #253d2c;
+      border-radius: 999px;
+      padding: 6px 12px;
+      font-weight: 700;
+    }
+
+    .lesson-list {
+      display: grid;
+      gap: 10px;
+    }
+
+    .lesson-row {
+      width: 100%;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      padding: 14px;
+      border: 1px solid #eee8dc;
+      border-radius: 14px;
+      background: #fffdf8;
+      color: #18251d;
+      text-align: left;
+      cursor: pointer;
+      transition: transform 0.12s ease, box-shadow 0.12s ease, border-color 0.12s ease;
+    }
+
+    .lesson-row:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 8px 18px rgba(0, 0, 0, 0.06);
+      border-color: #c9d8c7;
+    }
+
+    .lesson-row.completed {
+      border-color: #cfe1cf;
+      background: #f3faf3;
+    }
+
+    .lesson-row small {
+      display: block;
+      color: #667064;
+      margin-top: 4px;
+    }
+
+    .lesson-row span {
+      font-weight: 700;
+    }
+
+    .state {
+      max-width: 960px;
+      margin: 32px auto;
+    }
+
+    .error {
+      color: #b00020;
+    }
+  `]
+})
+export class CourseProgressComponent implements OnInit {
+  progress: CourseProgressResponse | null = null;
+  loading = true;
+  errorMessage = '';
+
+  constructor(
+    private readonly apiService: ApiService,
+    private readonly authService: AuthService,
+    private readonly router: Router
+  ) {}
+
+  ngOnInit(): void {
+    if (!this.authService.isLoggedIn()) {
+      this.router.navigateByUrl('/login');
+      return;
+    }
+
+    this.apiService.getCourseProgress(1).subscribe({
+      next: progress => {
+        this.progress = progress;
+        this.loading = false;
+      },
+      error: () => {
+        this.errorMessage = 'Impossible de charger la progression.';
+        this.loading = false;
+      }
+    });
+  }
+
+  openLesson(lessonId: number): void {
+    this.router.navigateByUrl('/lesson/' + lessonId);
+  }
+
+  logout(): void {
+    this.authService.logout();
+    this.router.navigateByUrl('/login');
+  }
+}

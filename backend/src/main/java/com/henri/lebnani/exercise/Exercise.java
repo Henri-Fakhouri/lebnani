@@ -4,8 +4,8 @@ import com.henri.lebnani.course.Lesson;
 import jakarta.persistence.*;
 
 import java.time.Instant;
-import java.util.ArrayList;
-import java.util.List;
+import java.util.LinkedHashSet;
+import java.util.Set;
 
 @Entity
 @Table(name = "exercise")
@@ -40,11 +40,11 @@ public class Exercise {
 
     @OneToMany(mappedBy = "exercise", fetch = FetchType.LAZY)
     @OrderBy("displayOrder ASC")
-    private List<ExerciseOption> options = new ArrayList<>();
+    private Set<ExerciseOption> options = new LinkedHashSet<>();
 
     @OneToMany(mappedBy = "exercise", fetch = FetchType.LAZY)
     @OrderBy("displayOrder ASC")
-    private List<ExerciseAcceptedAnswer> acceptedAnswers = new ArrayList<>();
+    private Set<ExerciseAcceptedAnswer> acceptedAnswers = new LinkedHashSet<>();
 
     public Long getId() {
         return id;
@@ -102,11 +102,11 @@ public class Exercise {
         return createdAt;
     }
 
-    public List<ExerciseOption> getOptions() {
+    public Set<ExerciseOption> getOptions() {
         return options;
     }
 
-    public List<ExerciseAcceptedAnswer> getAcceptedAnswers() {
+    public Set<ExerciseAcceptedAnswer> getAcceptedAnswers() {
         return acceptedAnswers;
     }
 }
