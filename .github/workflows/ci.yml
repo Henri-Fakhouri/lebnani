@@ -29,10 +29,10 @@ jobs:
         run: chmod +x mvnw
 
       - name: Run backend tests
-        run: ./mvnw test
+        run: ./mvnw clean test
 
   frontend:
-    name: Frontend build
+    name: Frontend build and tests
     runs-on: ubuntu-latest
 
     defaults:
@@ -56,6 +56,9 @@ jobs:
       - name: Build frontend
         run: npm run build
 
+      - name: Run frontend tests with coverage
+        run: npm test -- --watch=false --coverage
+
   sonar:
     name: SonarQube Cloud analysis
     runs-on: ubuntu-latest
@@ -75,11 +78,11 @@ jobs:
           distribution: temurin
           java-version: 21
 
-      - name: Build backend classes
+      - name: Build backend classes and coverage
         working-directory: backend
         run: |
           chmod +x mvnw
-          ./mvnw -DskipTests package
+          ./mvnw clean test
 
       - name: Set up Node
         uses: actions/setup-node@v4
@@ -95,6 +98,10 @@ jobs:
       - name: Build frontend
         working-directory: frontend/lebnani-web
         run: npm run build
+
+      - name: Run frontend tests with coverage
+        working-directory: frontend/lebnani-web
+        run: npm test -- --watch=false --coverage
 
       - name: Run SonarQube Cloud scan
         uses: SonarSource/sonarqube-scan-action@59db25f34e16620e48ab4bb9e4a5dce155cb5432
