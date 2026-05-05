@@ -2,6 +2,7 @@ package com.henri.lebnani.content;
 
 public class ContentImportResponse {
 
+    private final Long importRunId;
     private final Long courseId;
     private final int unitsCreated;
     private final int lessonsCreated;
@@ -10,6 +11,7 @@ public class ContentImportResponse {
     private final int acceptedAnswersCreated;
 
     public ContentImportResponse(
+            Long importRunId,
             Long courseId,
             int unitsCreated,
             int lessonsCreated,
@@ -17,12 +19,17 @@ public class ContentImportResponse {
             int optionsCreated,
             int acceptedAnswersCreated
     ) {
+        this.importRunId = importRunId;
         this.courseId = courseId;
         this.unitsCreated = unitsCreated;
         this.lessonsCreated = lessonsCreated;
         this.exercisesCreated = exercisesCreated;
         this.optionsCreated = optionsCreated;
         this.acceptedAnswersCreated = acceptedAnswersCreated;
+    }
+
+    public Long getImportRunId() {
+        return importRunId;
     }
 
     public Long getCourseId() {

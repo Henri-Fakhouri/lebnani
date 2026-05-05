@@ -8,6 +8,8 @@ import com.henri.lebnani.user.User;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.List;
+
 @Service
 public class ContentImportService {
 
@@ -18,6 +20,7 @@ public class ContentImportService {
     private final ExerciseOptionRepository exerciseOptionRepository;
     private final ExerciseAcceptedAnswerRepository acceptedAnswerRepository;
     private final ContentImportValidator contentImportValidator;
+    private final ContentImportRunRepository contentImportRunRepository;
 
     public ContentImportService(
             CourseRepository courseRepository,
@@ -26,7 +29,8 @@ public class ContentImportService {
             ExerciseRepository exerciseRepository,
             ExerciseOptionRepository exerciseOptionRepository,
             ExerciseAcceptedAnswerRepository acceptedAnswerRepository,
-            ContentImportValidator contentImportValidator
+            ContentImportValidator contentImportValidator,
+            ContentImportRunRepository contentImportRunRepository
     ) {
         this.courseRepository = courseRepository;
         this.courseUnitRepository = courseUnitRepository;
@@ -35,6 +39,7 @@ public class ContentImportService {
         this.exerciseOptionRepository = exerciseOptionRepository;
         this.acceptedAnswerRepository = acceptedAnswerRepository;
         this.contentImportValidator = contentImportValidator;
+        this.contentImportRunRepository = contentImportRunRepository;
     }
 
     @Transactional
@@ -43,11 +48,42 @@ public class ContentImportService {
             throw new BusinessException("FORBIDDEN_CONTENT_IMPORT", "Only admins or content editors can import content.");
         }
 
-        contentImportValidator.validate(request);
-
         Course course = courseRepository.findById(courseId)
                 .orElseThrow(() -> new BusinessException("COURSE_NOT_FOUND", "Course not found."));
 
+        ContentImportRun run = new ContentImportRun();
+        run.setCourse(course);
+        run.setUser(user);
+        ContentImportRun savedRun = contentImportRunRepository.save(run);
+
+        try {
+            contentImportValidator.validate(request);
+
+            ContentImportResponse response = doImport(course, savedRun.getId(), request);
+            savedRun.markCompleted(response);
+            contentImportRunRepository.save(savedRun);
+
+            return response;
+        } catch (RuntimeException exception) {
+            savedRun.markFailed(exception.getMessage());
+            contentImportRunRepository.save(savedRun);
+            throw exception;
+        }
+    }
+
+    @Transactional(readOnly = true)
+    public List<ContentImportRunResponse> getImportRuns(Long courseId, User user) {
+        if (user.getRole() != Role.ADMIN && user.getRole() != Role.CONTENT_EDITOR) {
+            throw new BusinessException("FORBIDDEN_CONTENT_IMPORT", "Only admins or content editors can inspect content imports.");
+        }
+
+        return contentImportRunRepository.findByCourseIdOrderByStartedAtDesc(courseId)
+                .stream()
+                .map(ContentImportRunResponse::new)
+                .toList();
+    }
+
+    private ContentImportResponse doImport(Course course, Long importRunId, ContentImportRequest request) {
         int unitsCreated = 0;
         int lessonsCreated = 0;
         int exercisesCreated = 0;
@@ -116,6 +152,7 @@ public class ContentImportService {
         }
 
         return new ContentImportResponse(
+                importRunId,
                 course.getId(),
                 unitsCreated,
                 lessonsCreated,

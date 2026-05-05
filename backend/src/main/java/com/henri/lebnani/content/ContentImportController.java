@@ -5,6 +5,8 @@ import jakarta.validation.Valid;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
+
 @RestController
 @RequestMapping("/api/admin")
 public class ContentImportController {
@@ -22,5 +24,13 @@ public class ContentImportController {
             @AuthenticationPrincipal User user
     ) {
         return contentImportService.importContent(courseId, request, user);
+    }
+
+    @GetMapping("/courses/{courseId}/content/imports")
+    public List<ContentImportRunResponse> getImportRuns(
+            @PathVariable Long courseId,
+            @AuthenticationPrincipal User user
+    ) {
+        return contentImportService.getImportRuns(courseId, user);
     }
 }
