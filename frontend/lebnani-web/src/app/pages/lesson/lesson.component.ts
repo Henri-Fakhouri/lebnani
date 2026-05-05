@@ -18,7 +18,7 @@ import { FormsModule } from '@angular/forms';
         @if (!loading && emptyLesson) {
           <h1>Leçon vide</h1>
           <p>Cette leçon n’a pas encore d’exercices.</p>
-          <button type="button" (click)="backToCourse()">Retour au parcours</button>
+          <button type="button" class="primary-button" (click)="backToCourse()">Retour au parcours</button>
         }
 
         @if (!loading && completed && result) {
@@ -49,7 +49,7 @@ import { FormsModule } from '@angular/forms';
             </p>
           }
 
-          <button type="button" (click)="backToCourse()">Retour au parcours</button>
+          <button type="button" class="primary-button" (click)="backToCourse()">Retour au parcours</button>
         }
 
         @if (!loading && !completed && exercise) {
@@ -66,6 +66,10 @@ import { FormsModule } from '@angular/forms';
               @for (opt of exercise.options; track opt.id) {
                 <button
                   type="button"
+                  class="option-button"
+                  [class.selected]="selectedOptionId === opt.id"
+                  [class.correct-selected]="selectedOptionId === opt.id && feedback && lastCorrect"
+                  [class.wrong-selected]="selectedOptionId === opt.id && feedback && !lastCorrect"
                   (click)="answerMC(opt.id)"
                   [disabled]="answering || !!feedback"
                 >
@@ -85,6 +89,7 @@ import { FormsModule } from '@angular/forms';
               />
               <button
                 type="button"
+                class="primary-button"
                 (click)="answerText()"
                 [disabled]="answering || !!feedback || !textAnswer.trim()"
               >
@@ -98,7 +103,7 @@ import { FormsModule } from '@angular/forms';
               {{ feedback }}
             </p>
 
-            <button type="button" class="next-button" (click)="next()">
+            <button type="button" class="primary-button next-button" (click)="next()">
               Continuer
             </button>
           }
@@ -106,7 +111,7 @@ import { FormsModule } from '@angular/forms';
 
         @if (!loading && errorMessage) {
           <p class="error">{{ errorMessage }}</p>
-          <button type="button" (click)="backToCourse()">Retour au parcours</button>
+          <button type="button" class="primary-button" (click)="backToCourse()">Retour au parcours</button>
         }
       </section>
     </main>
@@ -168,16 +173,71 @@ import { FormsModule } from '@angular/forms';
       padding: 14px 18px;
       border: 0;
       border-radius: 14px;
-      background: #253d2c;
-      color: white;
       cursor: pointer;
       font-weight: 700;
       font-size: 15px;
+      transition:
+        background 0.12s ease,
+        color 0.12s ease,
+        border-color 0.12s ease,
+        transform 0.12s ease,
+        box-shadow 0.12s ease;
     }
 
     button:disabled {
-      opacity: 0.7;
       cursor: default;
+    }
+
+    .primary-button {
+      background: #253d2c;
+      color: white;
+    }
+
+    .primary-button:disabled {
+      opacity: 0.55;
+    }
+
+    .option-button {
+      width: 100%;
+      background: #fffdf8;
+      color: #18251d;
+      border: 2px solid #e7e1d6;
+      text-align: left;
+      box-shadow: none;
+    }
+
+    .option-button:not(:disabled):hover {
+      transform: translateY(-1px);
+      border-color: #253d2c;
+      background: #f8fbf6;
+      box-shadow: 0 8px 18px rgba(0, 0, 0, 0.06);
+    }
+
+    .option-button.selected {
+      border-color: #253d2c;
+      background: #eef4ed;
+      color: #18251d;
+    }
+
+    .option-button.correct-selected {
+      border-color: #1b7f3a;
+      background: #1b7f3a;
+      color: white;
+      box-shadow: 0 8px 18px rgba(27, 127, 58, 0.18);
+    }
+
+    .option-button.wrong-selected {
+      border-color: #b00020;
+      background: #b00020;
+      color: white;
+      box-shadow: 0 8px 18px rgba(176, 0, 32, 0.18);
+    }
+
+    .option-button:disabled:not(.correct-selected):not(.wrong-selected) {
+      opacity: 0.55;
+      background: #f4f1ea;
+      color: #667064;
+      border-color: #e7e1d6;
     }
 
     .typed-answer {
@@ -190,6 +250,11 @@ import { FormsModule } from '@angular/forms';
       border: 1px solid #ddd;
       border-radius: 14px;
       font-size: 16px;
+    }
+
+    input:disabled {
+      background: #f4f1ea;
+      color: #667064;
     }
 
     .feedback {
@@ -265,6 +330,7 @@ export class LessonComponent implements OnInit {
   textAnswer = '';
   feedback = '';
   lastCorrect = false;
+  selectedOptionId: number | null = null;
 
   loading = true;
   answering = false;
@@ -328,6 +394,7 @@ export class LessonComponent implements OnInit {
           this.exercise = null;
           this.feedback = '';
           this.answering = false;
+          this.selectedOptionId = null;
         },
         error: () => {
           this.answering = false;
@@ -340,6 +407,7 @@ export class LessonComponent implements OnInit {
     this.exercise = this.exercises[this.index];
     this.feedback = '';
     this.textAnswer = '';
+    this.selectedOptionId = null;
     this.answering = false;
   }
 
@@ -348,6 +416,7 @@ export class LessonComponent implements OnInit {
       return;
     }
 
+    this.selectedOptionId = optionId;
     this.answering = true;
 
     this.api.submitAnswer(this.attemptId, {
