@@ -10,6 +10,7 @@ public class CompleteLessonAttemptResponse {
     private final long correctAnswers;
     private final long wrongAnswers;
     private final int scorePercent;
+    private final int xpAwarded;
 
     public CompleteLessonAttemptResponse(
             Long attemptId,
@@ -17,7 +18,8 @@ public class CompleteLessonAttemptResponse {
             String status,
             long totalExercises,
             long answeredExercises,
-            long correctAnswers
+            long correctAnswers,
+            int xpAwarded
     ) {
         this.attemptId = attemptId;
         this.lessonId = lessonId;
@@ -29,6 +31,7 @@ public class CompleteLessonAttemptResponse {
         this.scorePercent = totalExercises == 0
                 ? 0
                 : (int) Math.round((correctAnswers * 100.0) / totalExercises);
+        this.xpAwarded = xpAwarded;
     }
 
     public Long getAttemptId() {
@@ -61,5 +64,9 @@ public class CompleteLessonAttemptResponse {
 
     public int getScorePercent() {
         return scorePercent;
+    }
+
+    public int getXpAwarded() {
+        return xpAwarded;
     }
 }

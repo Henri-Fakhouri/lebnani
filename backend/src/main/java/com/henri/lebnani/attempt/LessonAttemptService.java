@@ -5,6 +5,7 @@ import com.henri.lebnani.course.Lesson;
 import com.henri.lebnani.course.LessonRepository;
 import com.henri.lebnani.exercise.Exercise;
 import com.henri.lebnani.exercise.ExerciseRepository;
+import com.henri.lebnani.progress.ProgressService;
 import com.henri.lebnani.user.User;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -17,19 +18,22 @@ public class LessonAttemptService {
     private final LessonAttemptRepository lessonAttemptRepository;
     private final ExerciseAttemptRepository exerciseAttemptRepository;
     private final AnswerNormalizer answerNormalizer;
+    private final ProgressService progressService;
 
     public LessonAttemptService(
             LessonRepository lessonRepository,
             ExerciseRepository exerciseRepository,
             LessonAttemptRepository lessonAttemptRepository,
             ExerciseAttemptRepository exerciseAttemptRepository,
-            AnswerNormalizer answerNormalizer
+            AnswerNormalizer answerNormalizer,
+            ProgressService progressService
     ) {
         this.lessonRepository = lessonRepository;
         this.exerciseRepository = exerciseRepository;
         this.lessonAttemptRepository = lessonAttemptRepository;
         this.exerciseAttemptRepository = exerciseAttemptRepository;
         this.answerNormalizer = answerNormalizer;
+        this.progressService = progressService;
     }
 
     @Transactional
@@ -125,7 +129,13 @@ public class LessonAttemptService {
 
         long correctAnswers = exerciseAttemptRepository.countByLessonAttemptIdAndCorrectTrue(attempt.getId());
 
+        int scorePercent = totalExercises == 0
+                ? 0
+                : (int) Math.round((correctAnswers * 100.0) / totalExercises);
+
         attempt.markCompleted();
+
+        int xpAwarded = progressService.applyLessonCompletion(user, attempt, scorePercent);
 
         return new CompleteLessonAttemptResponse(
                 attempt.getId(),
@@ -133,7 +143,8 @@ public class LessonAttemptService {
                 attempt.getStatus().name(),
                 totalExercises,
                 answeredExercises,
-                correctAnswers
+                correctAnswers,
+                xpAwarded
         );
     }
 }
