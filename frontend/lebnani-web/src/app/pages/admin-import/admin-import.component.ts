@@ -23,7 +23,7 @@ import { AuthService } from '../../core/auth.service';
         </header>
 
         <p class="description">
-          Colle un JSON de contenu pour ajouter des unités, leçons, exercices, options et réponses acceptées.
+          Colle un JSON de contenu pour ajouter des unités, leçons, contenu de cours, exercices, options et réponses acceptées.
         </p>
 
         <textarea [(ngModel)]="jsonText" spellcheck="false"></textarea>
@@ -50,6 +50,7 @@ import { AuthService } from '../../core/auth.service';
             <h2>Import réussi</h2>
             <p>Unités créées: {{ result.unitsCreated }}</p>
             <p>Leçons créées: {{ result.lessonsCreated }}</p>
+            <p>Blocs de contenu créés: {{ result.contentBlocksCreated }}</p>
             <p>Exercices créés: {{ result.exercisesCreated }}</p>
             <p>Options créées: {{ result.optionsCreated }}</p>
             <p>Réponses acceptées créées: {{ result.acceptedAnswersCreated }}</p>
@@ -114,7 +115,7 @@ import { AuthService } from '../../core/auth.service';
 
     textarea {
       width: 100%;
-      min-height: 420px;
+      min-height: 520px;
       resize: vertical;
       box-sizing: border-box;
       border: 1px solid #ddd;
@@ -192,7 +193,7 @@ import { AuthService } from '../../core/auth.service';
   `]
 })
 export class AdminImportComponent {
-  jsonText = `{
+  jsonText = String.raw`{
   "units": [
     {
       "title": "Voyage",
@@ -203,10 +204,27 @@ export class AdminImportComponent {
           "title": "À l'aéroport",
           "description": "Premières phrases pour voyager.",
           "displayOrder": 1,
+          "contentBlocks": [
+            {
+              "type": "HEADING",
+              "content": "À l'aéroport",
+              "displayOrder": 1
+            },
+            {
+              "type": "MARKDOWN",
+              "content": "Dans cette leçon, on apprend une phrase simple avec **baddi**, qui veut dire \"je veux\".",
+              "displayOrder": 2
+            },
+            {
+              "type": "MARKDOWN",
+              "content": "| Français | Libanais |\n|---|---|\n| Je veux | baddi |\n| Aller | rou7 |\n| Je veux aller | baddi rou7 |",
+              "displayOrder": 3
+            }
+          ],
           "exercises": [
             {
               "type": "TYPE_ANSWER",
-              "promptFr": "Écris \\"je veux aller\\" en libanais.",
+              "promptFr": "Écris \"je veux aller\" en libanais.",
               "correctAnswer": "baddi rou7",
               "displayOrder": 1,
               "acceptedAnswers": [
@@ -231,12 +249,13 @@ export class AdminImportComponent {
     private readonly apiService: ApiService,
     private readonly authService: AuthService,
     private readonly router: Router
-  ) {
+  ) { }
+
+  ngOnInit(): void {
     if (!this.authService.isLoggedIn()) {
       this.router.navigateByUrl('/login');
     }
   }
-
   importContent(): void {
     this.errorMessage = '';
     this.validationErrors = [];

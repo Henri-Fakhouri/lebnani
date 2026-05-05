@@ -51,7 +51,7 @@ jobs:
           cache-dependency-path: frontend/lebnani-web/package-lock.json
 
       - name: Install dependencies
-        run: npm ci
+        run: npm ci --ignore-scripts
 
       - name: Build frontend
         run: npm run build
@@ -90,7 +90,7 @@ jobs:
 
       - name: Install frontend dependencies
         working-directory: frontend/lebnani-web
-        run: npm ci
+        run: npm ci --ignore-scripts
 
       - name: Build frontend
         working-directory: frontend/lebnani-web

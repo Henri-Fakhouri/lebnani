@@ -149,7 +149,7 @@ import { marked } from 'marked';
       </section>
     </main>
   `,
-    styles: [`
+  styles: [`
     .lesson-page {
       min-height: 100vh;
       display: grid;
@@ -596,7 +596,7 @@ export class LessonComponent implements OnInit {
   }
 
   renderMarkdown(content: string): string {
-    const normalizedContent = content.replaceAll('\\n', '\n');
+    const normalizedContent = content.replaceAll(String.raw`\n`, '\n');
 
     return marked.parse(normalizedContent, {
       async: false,
