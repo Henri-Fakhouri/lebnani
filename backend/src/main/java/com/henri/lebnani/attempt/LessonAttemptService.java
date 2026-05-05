@@ -6,6 +6,7 @@ import com.henri.lebnani.course.LessonRepository;
 import com.henri.lebnani.exercise.Exercise;
 import com.henri.lebnani.exercise.ExerciseRepository;
 import com.henri.lebnani.progress.ProgressService;
+import com.henri.lebnani.review.ReviewService;
 import com.henri.lebnani.user.User;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -19,6 +20,7 @@ public class LessonAttemptService {
     private final ExerciseAttemptRepository exerciseAttemptRepository;
     private final AnswerNormalizer answerNormalizer;
     private final ProgressService progressService;
+    private final ReviewService reviewService;
 
     public LessonAttemptService(
             LessonRepository lessonRepository,
@@ -26,7 +28,8 @@ public class LessonAttemptService {
             LessonAttemptRepository lessonAttemptRepository,
             ExerciseAttemptRepository exerciseAttemptRepository,
             AnswerNormalizer answerNormalizer,
-            ProgressService progressService
+            ProgressService progressService,
+            ReviewService reviewService
     ) {
         this.lessonRepository = lessonRepository;
         this.exerciseRepository = exerciseRepository;
@@ -34,6 +37,7 @@ public class LessonAttemptService {
         this.exerciseAttemptRepository = exerciseAttemptRepository;
         this.answerNormalizer = answerNormalizer;
         this.progressService = progressService;
+        this.reviewService = reviewService;
     }
 
     @Transactional
@@ -90,6 +94,10 @@ public class LessonAttemptService {
         exerciseAttempt.setCorrect(correct);
 
         ExerciseAttempt savedExerciseAttempt = exerciseAttemptRepository.save(exerciseAttempt);
+
+        if (!correct) {
+            reviewService.registerWrongAnswer(user, exercise, savedExerciseAttempt);
+        }
 
         return new AnswerSubmissionResponse(
                 savedExerciseAttempt.getId(),
