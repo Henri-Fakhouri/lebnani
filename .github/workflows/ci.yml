@@ -28,8 +28,8 @@ jobs:
       - name: Make Maven wrapper executable
         run: chmod +x mvnw
 
-      - name: Run backend tests
-        run: ./mvnw clean test
+      - name: Run backend tests with coverage
+        run: ./mvnw -B clean verify
 
   frontend:
     name: Frontend build and tests
@@ -57,7 +57,7 @@ jobs:
         run: npm run build
 
       - name: Run frontend tests with coverage
-        run: npm test -- --watch=false --coverage
+        run: npm run test:coverage
 
   sonar:
     name: SonarQube Cloud analysis
@@ -82,7 +82,7 @@ jobs:
         working-directory: backend
         run: |
           chmod +x mvnw
-          ./mvnw clean test
+          ./mvnw -B clean verify dependency:copy-dependencies -DincludeScope=runtime
 
       - name: Set up Node
         uses: actions/setup-node@v4
@@ -101,7 +101,12 @@ jobs:
 
       - name: Run frontend tests with coverage
         working-directory: frontend/lebnani-web
-        run: npm test -- --watch=false --coverage
+        run: npm run test:coverage
+
+      - name: Verify coverage reports exist
+        run: |
+          test -f backend/target/site/jacoco/jacoco.xml
+          test -f frontend/lebnani-web/coverage/lebnani-web/lcov.info
 
       - name: Run SonarQube Cloud scan
         uses: SonarSource/sonarqube-scan-action@59db25f34e16620e48ab4bb9e4a5dce155cb5432

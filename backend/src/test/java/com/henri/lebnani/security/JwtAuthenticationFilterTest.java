@@ -8,6 +8,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
+import org.springframework.lang.NonNull;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
 
@@ -31,9 +32,9 @@ class JwtAuthenticationFilterTest {
 
     @Test
     void doFilterInternal_continues_without_authentication_when_authorization_header_is_missing() throws Exception {
-        HttpServletRequest request = mock(HttpServletRequest.class);
-        HttpServletResponse response = mock(HttpServletResponse.class);
-        FilterChain filterChain = mock(FilterChain.class);
+        HttpServletRequest request = httpRequest();
+        HttpServletResponse response = httpResponse();
+        FilterChain filterChain = filterChain();
 
         when(request.getHeader("Authorization")).thenReturn(null);
 
@@ -45,9 +46,9 @@ class JwtAuthenticationFilterTest {
 
     @Test
     void doFilterInternal_continues_without_authentication_when_authorization_header_is_not_bearer() throws Exception {
-        HttpServletRequest request = mock(HttpServletRequest.class);
-        HttpServletResponse response = mock(HttpServletResponse.class);
-        FilterChain filterChain = mock(FilterChain.class);
+        HttpServletRequest request = httpRequest();
+        HttpServletResponse response = httpResponse();
+        FilterChain filterChain = filterChain();
 
         when(request.getHeader("Authorization")).thenReturn("Basic token");
 
@@ -59,9 +60,9 @@ class JwtAuthenticationFilterTest {
 
     @Test
     void doFilterInternal_continues_without_authentication_when_token_is_invalid() throws Exception {
-        HttpServletRequest request = mock(HttpServletRequest.class);
-        HttpServletResponse response = mock(HttpServletResponse.class);
-        FilterChain filterChain = mock(FilterChain.class);
+        HttpServletRequest request = httpRequest();
+        HttpServletResponse response = httpResponse();
+        FilterChain filterChain = filterChain();
 
         when(request.getHeader("Authorization")).thenReturn("Bearer invalid-token");
         when(jwtService.isTokenValid("invalid-token")).thenReturn(false);
@@ -74,9 +75,9 @@ class JwtAuthenticationFilterTest {
 
     @Test
     void doFilterInternal_continues_without_authentication_when_token_is_valid_but_user_not_found() throws Exception {
-        HttpServletRequest request = mock(HttpServletRequest.class);
-        HttpServletResponse response = mock(HttpServletResponse.class);
-        FilterChain filterChain = mock(FilterChain.class);
+        HttpServletRequest request = httpRequest();
+        HttpServletResponse response = httpResponse();
+        FilterChain filterChain = filterChain();
 
         when(request.getHeader("Authorization")).thenReturn("Bearer valid-token");
         when(jwtService.isTokenValid("valid-token")).thenReturn(true);
@@ -91,9 +92,9 @@ class JwtAuthenticationFilterTest {
 
     @Test
     void doFilterInternal_sets_authentication_when_token_is_valid_and_user_exists() throws Exception {
-        HttpServletRequest request = mock(HttpServletRequest.class);
-        HttpServletResponse response = mock(HttpServletResponse.class);
-        FilterChain filterChain = mock(FilterChain.class);
+        HttpServletRequest request = httpRequest();
+        HttpServletResponse response = httpResponse();
+        FilterChain filterChain = filterChain();
         User user = buildUser(1L, "admin@email.com", Role.ADMIN);
 
         when(request.getHeader("Authorization")).thenReturn("Bearer valid-token");
@@ -117,9 +118,9 @@ class JwtAuthenticationFilterTest {
 
     @Test
     void doFilterInternal_clears_context_when_token_validation_throws() throws Exception {
-        HttpServletRequest request = mock(HttpServletRequest.class);
-        HttpServletResponse response = mock(HttpServletResponse.class);
-        FilterChain filterChain = mock(FilterChain.class);
+        HttpServletRequest request = httpRequest();
+        HttpServletResponse response = httpResponse();
+        FilterChain filterChain = filterChain();
 
         SecurityContextHolder.getContext().setAuthentication(
                 new UsernamePasswordAuthenticationToken("existing-user", null)
@@ -142,6 +143,21 @@ class JwtAuthenticationFilterTest {
         user.setPasswordHash("hash");
         user.setRole(role);
         return user;
+    }
+
+    @SuppressWarnings("null")
+    private @NonNull HttpServletRequest httpRequest() {
+        return mock(HttpServletRequest.class);
+    }
+
+    @SuppressWarnings("null")
+    private @NonNull HttpServletResponse httpResponse() {
+        return mock(HttpServletResponse.class);
+    }
+
+    @SuppressWarnings("null")
+    private @NonNull FilterChain filterChain() {
+        return mock(FilterChain.class);
     }
 
     private static void setId(Object entity, Long id) {
