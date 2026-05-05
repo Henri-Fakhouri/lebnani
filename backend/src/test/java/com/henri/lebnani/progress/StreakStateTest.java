@@ -1,56 +1,82 @@
 package com.henri.lebnani.progress;
 
-import static org.assertj.core.api.Assertions.assertThat;
+import org.junit.jupiter.api.Test;
 
 import java.time.LocalDate;
 
-import org.junit.jupiter.api.Test;
+import static org.assertj.core.api.Assertions.assertThat;
 
 class StreakStateTest {
 
+    private final LocalDate today = LocalDate.now();
+
     @Test
-    void shouldStartStreakAtOneOnFirstActivity() {
-        StreakState streakState = new StreakState();
+    void first_activity_sets_streak_to_1() {
+        StreakState state = new StreakState();
+        state.registerActivity(today);
 
-        streakState.registerActivity(LocalDate.of(2026, 5, 5));
-
-        assertThat(streakState.getCurrentStreak()).isEqualTo(1);
-        assertThat(streakState.getLongestStreak()).isEqualTo(1);
-        assertThat(streakState.getLastActivityDate()).isEqualTo(LocalDate.of(2026, 5, 5));
+        assertThat(state.getCurrentStreak()).isEqualTo(1);
+        assertThat(state.getLongestStreak()).isEqualTo(1);
+        assertThat(state.getLastActivityDate()).isEqualTo(today);
     }
 
     @Test
-    void shouldKeepSameStreakForSameDayActivity() {
-        StreakState streakState = new StreakState();
+    void same_day_activity_does_not_change_streak() {
+        StreakState state = new StreakState();
+        state.registerActivity(today);
+        state.registerActivity(today);
 
-        streakState.registerActivity(LocalDate.of(2026, 5, 5));
-        streakState.registerActivity(LocalDate.of(2026, 5, 5));
-
-        assertThat(streakState.getCurrentStreak()).isEqualTo(1);
-        assertThat(streakState.getLongestStreak()).isEqualTo(1);
+        assertThat(state.getCurrentStreak()).isEqualTo(1);
     }
 
     @Test
-    void shouldIncrementStreakForNextDayActivity() {
-        StreakState streakState = new StreakState();
+    void consecutive_day_increments_streak() {
+        StreakState state = new StreakState();
+        state.registerActivity(today.minusDays(1));
+        state.registerActivity(today);
 
-        streakState.registerActivity(LocalDate.of(2026, 5, 5));
-        streakState.registerActivity(LocalDate.of(2026, 5, 6));
-
-        assertThat(streakState.getCurrentStreak()).isEqualTo(2);
-        assertThat(streakState.getLongestStreak()).isEqualTo(2);
+        assertThat(state.getCurrentStreak()).isEqualTo(2);
     }
 
     @Test
-    void shouldResetStreakAfterMissedDay() {
-        StreakState streakState = new StreakState();
+    void gap_in_activity_resets_streak_to_1() {
+        StreakState state = new StreakState();
+        state.registerActivity(today.minusDays(5));
+        state.registerActivity(today);
 
-        streakState.registerActivity(LocalDate.of(2026, 5, 5));
-        streakState.registerActivity(LocalDate.of(2026, 5, 6));
-        streakState.registerActivity(LocalDate.of(2026, 5, 8));
+        assertThat(state.getCurrentStreak()).isEqualTo(1);
+    }
 
-        assertThat(streakState.getCurrentStreak()).isEqualTo(1);
-        assertThat(streakState.getLongestStreak()).isEqualTo(2);
-        assertThat(streakState.getLastActivityDate()).isEqualTo(LocalDate.of(2026, 5, 8));
+    @Test
+    void longest_streak_is_tracked() {
+        StreakState state = new StreakState();
+        state.registerActivity(today.minusDays(2));
+        state.registerActivity(today.minusDays(1));
+        state.registerActivity(today);
+
+        assertThat(state.getLongestStreak()).isEqualTo(3);
+    }
+
+    @Test
+    void longest_streak_not_reduced_after_reset() {
+        StreakState state = new StreakState();
+        state.registerActivity(today.minusDays(5));
+        state.registerActivity(today.minusDays(4));
+        state.registerActivity(today.minusDays(3));
+
+        state.registerActivity(today);
+
+        assertThat(state.getCurrentStreak()).isEqualTo(1);
+        assertThat(state.getLongestStreak()).isEqualTo(3);
+    }
+
+    @Test
+    void updated_at_is_refreshed_on_activity() {
+        StreakState state = new StreakState();
+        var before = state.getUpdatedAt();
+
+        state.registerActivity(today);
+
+        assertThat(state.getUpdatedAt()).isAfterOrEqualTo(before);
     }
 }

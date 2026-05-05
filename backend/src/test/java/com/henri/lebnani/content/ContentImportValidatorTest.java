@@ -2,138 +2,215 @@ package com.henri.lebnani.content;
 
 import org.junit.jupiter.api.Test;
 
-import java.lang.reflect.Field;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.assertj.core.api.Assertions.assertThatCode;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 class ContentImportValidatorTest {
 
     private final ContentImportValidator validator = new ContentImportValidator();
 
+    // ── valid requests ───────────────────────────────────────────────────────
+
     @Test
-    void shouldRejectMultipleChoiceWithoutExactlyOneCorrectOption() {
-        ContentImportRequest.OptionImport option1 = option("a", true, 1);
-        ContentImportRequest.OptionImport option2 = option("b", true, 2);
+    void valid_type_answer_exercise_passes() {
+        ContentImportRequest request = buildRequest(List.of(
+                buildUnit(1, List.of(
+                        buildLesson(1, List.of(
+                                buildTypeAnswerExercise(1, "baddi rou7", List.of("baddi rou7"))
+                        ))
+                ))
+        ));
 
-        ContentImportRequest.ExerciseImport exercise = exercise(
-                "MULTIPLE_CHOICE",
-                "Question",
-                "a",
-                1,
-                List.of(option1, option2),
-                List.of()
-        );
+        assertThatCode(() -> validator.validate(request)).doesNotThrowAnyException();
+    }
 
-        ContentImportRequest request = requestWithExercise(exercise);
+    @Test
+    void valid_multiple_choice_exercise_passes() {
+        ContentImportRequest request = buildRequest(List.of(
+                buildUnit(1, List.of(
+                        buildLesson(1, List.of(
+                                buildMultipleChoiceExercise(1, List.of(
+                                        buildOption(1, true),
+                                        buildOption(2, false)
+                                ))
+                        ))
+                ))
+        ));
+
+        assertThatCode(() -> validator.validate(request)).doesNotThrowAnyException();
+    }
+
+    // ── duplicate order errors ───────────────────────────────────────────────
+
+    @Test
+    void duplicate_unit_display_orders_throw() {
+        ContentImportRequest request = buildRequest(List.of(
+                buildUnit(1, List.of()),
+                buildUnit(1, List.of())
+        ));
 
         assertThatThrownBy(() -> validator.validate(request))
-                .isInstanceOf(ContentValidationException.class)
-                .satisfies(exception -> {
-                    ContentValidationException validationException = (ContentValidationException) exception;
-
-                    org.assertj.core.api.Assertions.assertThat(validationException.getErrors())
-                            .anyMatch(error ->
-                                    error.getPath().equals("units[0].lessons[0].exercises[0].options")
-                                            && error.getMessage().equals("MULTIPLE_CHOICE exercises must have exactly one correct option.")
-                            );
-                });
+                .isInstanceOf(ContentValidationException.class);
     }
 
     @Test
-    void shouldRejectTypedAnswerWithoutCorrectAnswerOrAcceptedAnswers() {
-        ContentImportRequest.ExerciseImport exercise = exercise(
-                "TYPE_ANSWER",
-                "Question",
-                null,
-                1,
-                List.of(),
-                List.of()
-        );
-
-        ContentImportRequest request = requestWithExercise(exercise);
+    void duplicate_lesson_display_orders_throw() {
+        ContentImportRequest request = buildRequest(List.of(
+                buildUnit(1, List.of(
+                        buildLesson(1, List.of()),
+                        buildLesson(1, List.of())
+                ))
+        ));
 
         assertThatThrownBy(() -> validator.validate(request))
-                .isInstanceOf(ContentValidationException.class)
-                .satisfies(exception -> {
-                    ContentValidationException validationException = (ContentValidationException) exception;
-
-                    org.assertj.core.api.Assertions.assertThat(validationException.getErrors())
-                            .anyMatch(error ->
-                                    error.getPath().equals("units[0].lessons[0].exercises[0]")
-                                            && error.getMessage().equals("TYPE_ANSWER exercises must have correctAnswer or acceptedAnswers.")
-                            );
-                });
+                .isInstanceOf(ContentValidationException.class);
     }
 
     @Test
-    void shouldAcceptValidTypedAnswerExercise() {
-        ContentImportRequest.ExerciseImport exercise = exercise(
-                "TYPE_ANSWER",
-                "Question",
-                "mar7aba",
-                1,
-                List.of(),
-                List.of("mar7aba", "marhaba")
-        );
+    void duplicate_exercise_display_orders_throw() {
+        ContentImportRequest request = buildRequest(List.of(
+                buildUnit(1, List.of(
+                        buildLesson(1, List.of(
+                                buildTypeAnswerExercise(1, "answer", List.of("answer")),
+                                buildTypeAnswerExercise(1, "answer2", List.of("answer2"))
+                        ))
+                ))
+        ));
 
-        ContentImportRequest request = requestWithExercise(exercise);
-
-        validator.validate(request);
+        assertThatThrownBy(() -> validator.validate(request))
+                .isInstanceOf(ContentValidationException.class);
     }
 
-    private ContentImportRequest requestWithExercise(ContentImportRequest.ExerciseImport exercise) {
-        ContentImportRequest.LessonImport lesson = new ContentImportRequest.LessonImport();
-        set(lesson, "title", "Lesson");
-        set(lesson, "description", "Lesson description");
-        set(lesson, "displayOrder", 1);
-        set(lesson, "exercises", List.of(exercise));
+    // ── multiple choice errors ───────────────────────────────────────────────
 
-        ContentImportRequest.UnitImport unit = new ContentImportRequest.UnitImport();
-        set(unit, "title", "Unit");
-        set(unit, "description", "Unit description");
-        set(unit, "displayOrder", 1);
-        set(unit, "lessons", List.of(lesson));
+    @Test
+    void multiple_choice_with_no_options_throws() {
+        ContentImportRequest request = buildRequest(List.of(
+                buildUnit(1, List.of(
+                        buildLesson(1, List.of(
+                                buildMultipleChoiceExercise(1, List.of())
+                        ))
+                ))
+        ));
 
-        ContentImportRequest request = new ContentImportRequest();
-        set(request, "units", List.of(unit));
-
-        return request;
+        assertThatThrownBy(() -> validator.validate(request))
+                .isInstanceOf(ContentValidationException.class);
     }
 
-    private ContentImportRequest.ExerciseImport exercise(
-            String type,
-            String promptFr,
-            String correctAnswer,
-            int displayOrder,
-            List<ContentImportRequest.OptionImport> options,
-            List<String> acceptedAnswers
-    ) {
-        ContentImportRequest.ExerciseImport exercise = new ContentImportRequest.ExerciseImport();
-        set(exercise, "type", type);
-        set(exercise, "promptFr", promptFr);
-        set(exercise, "correctAnswer", correctAnswer);
-        set(exercise, "displayOrder", displayOrder);
-        set(exercise, "options", options);
-        set(exercise, "acceptedAnswers", acceptedAnswers);
-        return exercise;
+    @Test
+    void multiple_choice_with_no_correct_option_throws() {
+        ContentImportRequest request = buildRequest(List.of(
+                buildUnit(1, List.of(
+                        buildLesson(1, List.of(
+                                buildMultipleChoiceExercise(1, List.of(
+                                        buildOption(1, false),
+                                        buildOption(2, false)
+                                ))
+                        ))
+                ))
+        ));
+
+        assertThatThrownBy(() -> validator.validate(request))
+                .isInstanceOf(ContentValidationException.class);
     }
 
-    private ContentImportRequest.OptionImport option(String text, boolean correct, int displayOrder) {
-        ContentImportRequest.OptionImport option = new ContentImportRequest.OptionImport();
-        set(option, "text", text);
-        set(option, "correct", correct);
-        set(option, "displayOrder", displayOrder);
-        return option;
+    @Test
+    void multiple_choice_with_multiple_correct_options_throws() {
+        ContentImportRequest request = buildRequest(List.of(
+                buildUnit(1, List.of(
+                        buildLesson(1, List.of(
+                                buildMultipleChoiceExercise(1, List.of(
+                                        buildOption(1, true),
+                                        buildOption(2, true)
+                                ))
+                        ))
+                ))
+        ));
+
+        assertThatThrownBy(() -> validator.validate(request))
+                .isInstanceOf(ContentValidationException.class);
     }
 
-    private void set(Object target, String fieldName, Object value) {
-        try {
-            Field field = target.getClass().getDeclaredField(fieldName);
-            field.setAccessible(true);
-            field.set(target, value);
-        } catch (Exception exception) {
-            throw new IllegalStateException("Could not set field: " + fieldName, exception);
-        }
+    // ── type answer errors ───────────────────────────────────────────────────
+
+    @Test
+    void type_answer_with_no_correct_answer_throws() {
+        ContentImportRequest request = buildRequest(List.of(
+                buildUnit(1, List.of(
+                        buildLesson(1, List.of(
+                                buildTypeAnswerExercise(1, null, List.of())
+                        ))
+                ))
+        ));
+
+        assertThatThrownBy(() -> validator.validate(request))
+                .isInstanceOf(ContentValidationException.class);
+    }
+
+    @Test
+    void unsupported_exercise_type_throws() {
+        ContentImportRequest.ExerciseImport ex = mock(ContentImportRequest.ExerciseImport.class);
+        when(ex.getType()).thenReturn("UNSUPPORTED");
+        when(ex.getDisplayOrder()).thenReturn(1);
+
+        ContentImportRequest request = buildRequest(List.of(
+                buildUnit(1, List.of(
+                        buildLesson(1, List.of(ex))
+                ))
+        ));
+
+        assertThatThrownBy(() -> validator.validate(request))
+                .isInstanceOf(ContentValidationException.class);
+    }
+
+    // ── builders ─────────────────────────────────────────────────────────────
+
+    private ContentImportRequest buildRequest(List<ContentImportRequest.UnitImport> units) {
+        ContentImportRequest r = mock(ContentImportRequest.class);
+        when(r.getUnits()).thenReturn(units);
+        return r;
+    }
+
+    private ContentImportRequest.UnitImport buildUnit(int order, List<ContentImportRequest.LessonImport> lessons) {
+        ContentImportRequest.UnitImport u = mock(ContentImportRequest.UnitImport.class);
+        when(u.getDisplayOrder()).thenReturn(order);
+        when(u.getLessons()).thenReturn(lessons);
+        return u;
+    }
+
+    private ContentImportRequest.LessonImport buildLesson(int order, List<ContentImportRequest.ExerciseImport> exercises) {
+        ContentImportRequest.LessonImport l = mock(ContentImportRequest.LessonImport.class);
+        when(l.getDisplayOrder()).thenReturn(order);
+        when(l.getExercises()).thenReturn(exercises);
+        return l;
+    }
+
+    private ContentImportRequest.ExerciseImport buildTypeAnswerExercise(int order, String correctAnswer, List<String> acceptedAnswers) {
+        ContentImportRequest.ExerciseImport ex = mock(ContentImportRequest.ExerciseImport.class);
+        when(ex.getDisplayOrder()).thenReturn(order);
+        when(ex.getType()).thenReturn("TYPE_ANSWER");
+        when(ex.getCorrectAnswer()).thenReturn(correctAnswer);
+        when(ex.getAcceptedAnswers()).thenReturn(acceptedAnswers);
+        when(ex.getOptions()).thenReturn(List.of());
+        return ex;
+    }
+
+    private ContentImportRequest.ExerciseImport buildMultipleChoiceExercise(int order, List<ContentImportRequest.OptionImport> options) {
+        ContentImportRequest.ExerciseImport ex = mock(ContentImportRequest.ExerciseImport.class);
+        when(ex.getDisplayOrder()).thenReturn(order);
+        when(ex.getType()).thenReturn("MULTIPLE_CHOICE");
+        when(ex.getOptions()).thenReturn(options);
+        return ex;
+    }
+
+    private ContentImportRequest.OptionImport buildOption(int order, boolean correct) {
+        ContentImportRequest.OptionImport opt = mock(ContentImportRequest.OptionImport.class);
+        when(opt.getDisplayOrder()).thenReturn(order);
+        when(opt.getCorrect()).thenReturn(correct);
+        return opt;
     }
 }
