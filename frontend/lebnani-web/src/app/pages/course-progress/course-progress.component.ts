@@ -22,7 +22,9 @@ interface UserProgressResponse {
         </div>
 
     <div class="topbar-actions">
-    <button type="button" class="secondary" (click)="openAdminImport()">Import JSON</button>
+    @if (isAdmin) {
+  <button type="button" class="secondary" (click)="openAdminImport()">Import JSON</button>
+}
     <button type="button" class="secondary" (click)="openReview()">Révisions</button>
     <button type="button" (click)="logout()">Déconnexion</button>
     </div>
@@ -296,6 +298,7 @@ export class CourseProgressComponent implements OnInit {
     progress: CourseProgressResponse | null = null;
     userProgress: UserProgressResponse | null = null;
 
+    isAdmin = false;
     loading = true;
     errorMessage = '';
 
@@ -310,6 +313,8 @@ export class CourseProgressComponent implements OnInit {
             this.router.navigateByUrl('/login');
             return;
         }
+
+        this.isAdmin = this.authService.isAdmin();
 
         this.loadDashboard();
     }

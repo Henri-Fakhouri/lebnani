@@ -141,7 +141,7 @@ export class LoginComponent {
 
         this.apiService.login(this.email, this.password).subscribe({
             next: response => {
-                this.authService.saveToken(response.accessToken);
+                this.authService.saveSession(response.accessToken, response);
                 this.router.navigateByUrl('/course');
             },
             error: () => {

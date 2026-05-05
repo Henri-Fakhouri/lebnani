@@ -1,7 +1,7 @@
 import { Injectable } from '@angular/core';
 import { HttpClient, HttpHeaders } from '@angular/common/http';
 import { Observable } from 'rxjs';
-import { AuthService, LoginResponse } from './auth.service';
+import { AuthService } from './auth.service';
 
 export interface CourseProgressResponse {
     courseId: number;
@@ -47,6 +47,16 @@ export interface ExerciseOptionResponse {
     text: string;
     displayOrder: number;
 }
+
+export interface LoginResponse {
+  id: number;
+  email: string;
+  displayName: string;
+  role: string;
+  accessToken: string;
+  tokenType: string;
+}
+
 
 @Injectable({
     providedIn: 'root'
@@ -148,7 +158,7 @@ export class ApiService {
             { headers: this.authHeaders() }
         );
     }
-    
+
     answerReviewItem(reviewItemId: number, answer: string): Observable<any> {
         return this.http.post<any>(
             `/api/users/me/review-items/${reviewItemId}/answer`,
