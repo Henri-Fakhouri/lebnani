@@ -1,6 +1,3 @@
-Replace your entire `README.md` with this:
-
-````md
 # Lebnani
 
 Lebnani is a full-stack web app for learning spoken Lebanese Arabic, starting with French-speaking learners.
