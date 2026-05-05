@@ -4,7 +4,7 @@ import java.util.List;
 
 public class ContentValidationException extends RuntimeException {
 
-    private final List<ContentValidationError> errors;
+    private final transient List<ContentValidationError> errors;
 
     public ContentValidationException(List<ContentValidationError> errors) {
         super("Content import validation failed.");

@@ -7,6 +7,8 @@ import java.util.*;
 @Component
 public class ContentImportValidator {
 
+    private static final String OPTIONS_PATH = ".options";
+
     public void validate(ContentImportRequest request) {
         List<ContentValidationError> errors = new ArrayList<>();
 
@@ -120,7 +122,7 @@ public class ContentImportValidator {
     ) {
         if (exercise.getOptions().isEmpty()) {
             errors.add(new ContentValidationError(
-                    exercisePath + ".options",
+                    exercisePath + OPTIONS_PATH,
                     "MULTIPLE_CHOICE exercises must have options."
             ));
             return;
@@ -133,7 +135,7 @@ public class ContentImportValidator {
 
         if (correctOptions != 1) {
             errors.add(new ContentValidationError(
-                    exercisePath + ".options",
+                    exercisePath + OPTIONS_PATH,
                     "MULTIPLE_CHOICE exercises must have exactly one correct option."
             ));
         }
@@ -142,7 +144,7 @@ public class ContentImportValidator {
         for (ContentImportRequest.OptionImport option : exercise.getOptions()) {
             if (option.getDisplayOrder() != null && !seenOrders.add(option.getDisplayOrder())) {
                 errors.add(new ContentValidationError(
-                        exercisePath + ".options",
+                        exercisePath + OPTIONS_PATH,
                         "Duplicate option displayOrder: " + option.getDisplayOrder()
                 ));
             }
