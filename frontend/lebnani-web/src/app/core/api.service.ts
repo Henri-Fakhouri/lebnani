@@ -30,6 +30,24 @@ export interface LessonProgressResponse {
     bestScorePercent: number;
 }
 
+export interface ReviewItemResponse {
+    id: number;
+    exerciseId: number;
+    exerciseType: string;
+    promptFr: string;
+    options: ExerciseOptionResponse[];
+    status: string;
+    failureCount: number;
+    successCount: number;
+    nextReviewAt: string;
+}
+
+export interface ExerciseOptionResponse {
+    id: number;
+    text: string;
+    displayOrder: number;
+}
+
 @Injectable({
     providedIn: 'root'
 })
@@ -98,6 +116,21 @@ export class ApiService {
     getExercises(lessonId: number) {
         return this.http.get<any[]>(
             `/api/lessons/${lessonId}/exercises`
+        );
+    }
+
+    getReviewQueue(): Observable<ReviewItemResponse[]> {
+        return this.http.get<ReviewItemResponse[]>(
+            '/api/users/me/review-queue',
+            { headers: this.authHeaders() }
+        );
+    }
+
+    answerReviewItem(reviewItemId: number, answer: string): Observable<any> {
+        return this.http.post<any>(
+            `/api/users/me/review-items/${reviewItemId}/answer`,
+            { answer },
+            { headers: this.authHeaders() }
         );
     }
 }

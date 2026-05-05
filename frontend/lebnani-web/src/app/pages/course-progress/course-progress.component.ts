@@ -14,7 +14,10 @@ import { AuthService } from '../../core/auth.service';
           <p>Ton parcours de libanais parlé</p>
         </div>
 
-        <button type="button" (click)="logout()">Déconnexion</button>
+        <div class="topbar-actions">
+          <button type="button" class="secondary" (click)="openReview()">Révisions</button>
+          <button type="button" (click)="logout()">Déconnexion</button>
+        </div>
       </header>
 
       @if (loading) {
@@ -91,6 +94,12 @@ import { AuthService } from '../../core/auth.service';
       align-items: center;
     }
 
+    .topbar-actions {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+    }
+
     h1, h2, p {
       margin: 0;
     }
@@ -112,6 +121,11 @@ import { AuthService } from '../../core/auth.service';
       color: white;
       cursor: pointer;
       font-weight: 700;
+    }
+
+    button.secondary {
+      background: #eef4ed;
+      color: #253d2c;
     }
 
     .summary-card,
@@ -251,6 +265,10 @@ export class CourseProgressComponent implements OnInit {
 
   openLesson(lessonId: number): void {
     this.router.navigateByUrl('/lesson/' + lessonId);
+  }
+
+  openReview(): void {
+    this.router.navigateByUrl('/review');
   }
 
   logout(): void {
