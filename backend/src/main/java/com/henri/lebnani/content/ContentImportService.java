@@ -17,6 +17,7 @@ public class ContentImportService {
     private final ExerciseRepository exerciseRepository;
     private final ExerciseOptionRepository exerciseOptionRepository;
     private final ExerciseAcceptedAnswerRepository acceptedAnswerRepository;
+    private final ContentImportValidator contentImportValidator;
 
     public ContentImportService(
             CourseRepository courseRepository,
@@ -24,7 +25,8 @@ public class ContentImportService {
             LessonRepository lessonRepository,
             ExerciseRepository exerciseRepository,
             ExerciseOptionRepository exerciseOptionRepository,
-            ExerciseAcceptedAnswerRepository acceptedAnswerRepository
+            ExerciseAcceptedAnswerRepository acceptedAnswerRepository,
+            ContentImportValidator contentImportValidator
     ) {
         this.courseRepository = courseRepository;
         this.courseUnitRepository = courseUnitRepository;
@@ -32,6 +34,7 @@ public class ContentImportService {
         this.exerciseRepository = exerciseRepository;
         this.exerciseOptionRepository = exerciseOptionRepository;
         this.acceptedAnswerRepository = acceptedAnswerRepository;
+        this.contentImportValidator = contentImportValidator;
     }
 
     @Transactional
@@ -39,6 +42,8 @@ public class ContentImportService {
         if (user.getRole() != Role.ADMIN && user.getRole() != Role.CONTENT_EDITOR) {
             throw new BusinessException("FORBIDDEN_CONTENT_IMPORT", "Only admins or content editors can import content.");
         }
+
+        contentImportValidator.validate(request);
 
         Course course = courseRepository.findById(courseId)
                 .orElseThrow(() -> new BusinessException("COURSE_NOT_FOUND", "Course not found."));
@@ -78,7 +83,7 @@ public class ContentImportService {
                     exercise.setLesson(savedLesson);
                     exercise.setType(exerciseType);
                     exercise.setPromptFr(exerciseImport.getPromptFr());
-                    exercise.setCorrectAnswer(exerciseImport.getCorrectAnswer());
+                    exercise.setCorrectAnswer(resolveCorrectAnswer(exerciseImport));
                     exercise.setDisplayOrder(exerciseImport.getDisplayOrder());
                     exercise.setPublished(true);
 
@@ -126,5 +131,17 @@ public class ContentImportService {
         } catch (Exception exception) {
             throw new BusinessException("INVALID_EXERCISE_TYPE", "Invalid exercise type: " + value);
         }
+    }
+
+    private String resolveCorrectAnswer(ContentImportRequest.ExerciseImport exerciseImport) {
+        if (exerciseImport.getCorrectAnswer() != null && !exerciseImport.getCorrectAnswer().isBlank()) {
+            return exerciseImport.getCorrectAnswer();
+        }
+
+        if (!exerciseImport.getAcceptedAnswers().isEmpty()) {
+            return exerciseImport.getAcceptedAnswers().get(0);
+        }
+
+        return null;
     }
 }
