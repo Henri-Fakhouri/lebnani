@@ -33,4 +33,12 @@ public class LessonAttemptController {
     ) {
         return lessonAttemptService.submitAnswer(attemptId, request, user);
     }
+
+    @PostMapping("/lesson-attempts/{attemptId}/complete")
+    public CompleteLessonAttemptResponse completeAttempt(
+            @PathVariable Long attemptId,
+            @AuthenticationPrincipal User user
+    ) {
+        return lessonAttemptService.completeAttempt(attemptId, user);
+    }
 }

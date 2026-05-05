@@ -9,4 +9,6 @@ public interface ExerciseRepository extends JpaRepository<Exercise, Long> {
 
     @EntityGraph(attributePaths = "options")
     List<Exercise> findByLessonIdAndPublishedTrueOrderByDisplayOrderAsc(Long lessonId);
+
+    long countByLessonIdAndPublishedTrue(Long lessonId);
 }

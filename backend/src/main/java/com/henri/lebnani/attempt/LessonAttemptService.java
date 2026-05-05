@@ -96,4 +96,44 @@ public class LessonAttemptService {
                 expectedAnswer
         );
     }
+
+    @Transactional
+    public CompleteLessonAttemptResponse completeAttempt(Long attemptId, User user) {
+        LessonAttempt attempt = lessonAttemptRepository.findById(attemptId)
+                .orElseThrow(() -> new BusinessException("ATTEMPT_NOT_FOUND", "Lesson attempt not found."));
+
+        if (!attempt.getUser().getId().equals(user.getId())) {
+            throw new BusinessException("ATTEMPT_FORBIDDEN", "This lesson attempt does not belong to you.");
+        }
+
+        if (attempt.getStatus() != LessonAttemptStatus.IN_PROGRESS) {
+            throw new BusinessException("ATTEMPT_NOT_IN_PROGRESS", "This lesson attempt is not in progress.");
+        }
+
+        long totalExercises = exerciseRepository.countByLessonIdAndPublishedTrue(
+                attempt.getLesson().getId()
+        );
+
+        long answeredExercises = exerciseAttemptRepository.countByLessonAttemptId(attempt.getId());
+
+        if (answeredExercises < totalExercises) {
+            throw new BusinessException(
+                    "LESSON_NOT_FULLY_ANSWERED",
+                    "You must answer all lesson exercises before completing the lesson."
+            );
+        }
+
+        long correctAnswers = exerciseAttemptRepository.countByLessonAttemptIdAndCorrectTrue(attempt.getId());
+
+        attempt.markCompleted();
+
+        return new CompleteLessonAttemptResponse(
+                attempt.getId(),
+                attempt.getLesson().getId(),
+                attempt.getStatus().name(),
+                totalExercises,
+                answeredExercises,
+                correctAnswers
+        );
+    }
 }
