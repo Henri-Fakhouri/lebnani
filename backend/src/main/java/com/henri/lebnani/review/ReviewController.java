@@ -1,6 +1,7 @@
 package com.henri.lebnani.review;
 
 import com.henri.lebnani.user.User;
+import jakarta.validation.Valid;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
@@ -19,5 +20,14 @@ public class ReviewController {
     @GetMapping("/review-queue")
     public List<ReviewItemResponse> getReviewQueue(@AuthenticationPrincipal User user) {
         return reviewService.getDueReviewItems(user);
+    }
+
+    @PostMapping("/review-items/{reviewItemId}/answer")
+    public ReviewAnswerResponse answerReviewItem(
+            @PathVariable Long reviewItemId,
+            @Valid @RequestBody ReviewAnswerRequest request,
+            @AuthenticationPrincipal User user
+    ) {
+        return reviewService.answerReviewItem(reviewItemId, request, user);
     }
 }

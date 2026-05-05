@@ -101,7 +101,32 @@ public class ReviewItem {
         this.sourceExerciseAttempt = sourceExerciseAttempt;
         this.status = ReviewItemStatus.DUE;
         this.failureCount++;
+        this.successCount = 0;
         this.nextReviewAt = Instant.now();
         this.updatedAt = Instant.now();
+    }
+
+    public void registerReviewAnswer(boolean correct) {
+        if (correct) {
+            successCount++;
+
+            if (successCount >= 3) {
+                status = ReviewItemStatus.MASTERED;
+                nextReviewAt = Instant.now().plusSeconds(30L * 24 * 60 * 60);
+            } else if (successCount == 2) {
+                status = ReviewItemStatus.SCHEDULED;
+                nextReviewAt = Instant.now().plusSeconds(3L * 24 * 60 * 60);
+            } else {
+                status = ReviewItemStatus.SCHEDULED;
+                nextReviewAt = Instant.now().plusSeconds(24L * 60 * 60);
+            }
+        } else {
+            failureCount++;
+            successCount = 0;
+            status = ReviewItemStatus.DUE;
+            nextReviewAt = Instant.now();
+        }
+
+        updatedAt = Instant.now();
     }
 }
