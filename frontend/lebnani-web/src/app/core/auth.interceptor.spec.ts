@@ -110,7 +110,7 @@ describe('authInterceptor', () => {
     expect(routerMock.navigateByUrl).toHaveBeenCalledWith('/login');
   });
 
-  it('should logout and redirect on 403 error', async () => {
+  it('should not logout and redirect on 403 error', async () => {
     authServiceMock.getToken.mockReturnValue('jwt-token');
 
     const request = new HttpRequest('GET', '/api/admin');
@@ -122,8 +122,8 @@ describe('authInterceptor', () => {
       firstValueFrom(TestBed.runInInjectionContext(() => authInterceptor(request, next)))
     ).rejects.toBe(error);
 
-    expect(authServiceMock.logout).toHaveBeenCalled();
-    expect(routerMock.navigateByUrl).toHaveBeenCalledWith('/login');
+    expect(authServiceMock.logout).not.toHaveBeenCalled();
+    expect(routerMock.navigateByUrl).not.toHaveBeenCalled();
   });
 
   it('should not logout on non auth http errors', async () => {

@@ -5,6 +5,7 @@ import { marked } from 'marked';
 import { ApiService, LessonContentBlockResponse } from '../../core/api.service';
 import { AuthService } from '../../core/auth.service';
 import { MascotComponent, MascotMood } from '../../shared/mascot/mascot.component';
+import { SoundService } from '../../core/sound.service';
 
 @Component({
   selector: 'app-lesson',
@@ -729,8 +730,9 @@ export class LessonComponent implements OnInit {
     private readonly route: ActivatedRoute,
     private readonly api: ApiService,
     private readonly auth: AuthService,
-    private readonly router: Router
-  ) {}
+    private readonly router: Router,
+    private readonly soundService: SoundService
+  ) { }
 
   ngOnInit(): void {
     if (!this.auth.isLoggedIn()) {
@@ -897,7 +899,7 @@ export class LessonComponent implements OnInit {
     });
   }
 
-  next(): void {
+   next(): void {
     this.index++;
 
     if (this.index >= this.exercises.length) {
@@ -909,6 +911,7 @@ export class LessonComponent implements OnInit {
           this.feedback = '';
           this.answering = false;
           this.selectedOptionId = null;
+          this.soundService.playComplete();
         },
         error: () => {
           this.answering = false;
@@ -970,6 +973,13 @@ export class LessonComponent implements OnInit {
       ? 'Correct'
       : `Incorrect. Réponse attendue : ${expectedAnswer}`;
     this.answering = false;
+
+    if (correct) {
+      this.soundService.playCorrect();
+      return;
+    }
+
+    this.soundService.playWrong();
   }
 
   renderMarkdown(content: string): string {
