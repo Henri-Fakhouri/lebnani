@@ -126,11 +126,19 @@ import { WordBankSentenceExerciseComponent } from './word-bank-sentence-exercise
                   </div>
                 }
               }
-            </div>
+                       </div>
 
-            <button type="button" class="primary-button full-width next-button" (click)="startExercises()">
-              Commencer les exercices
-            </button>
+            @if (exercises.length > 0) {
+              <button type="button" class="primary-button full-width next-button" (click)="startExercises()">
+                Commencer les exercices
+              </button>
+            }
+
+            @if (exercises.length === 0) {
+              <button type="button" class="primary-button full-width next-button" (click)="completeCourseOnlyLesson()">
+                Terminer la lecture
+              </button>
+            }
           }
 
           @if (!loading && !errorMessage && !completed && !readingMode && exercise) {
@@ -879,7 +887,7 @@ export class LessonComponent implements OnInit {
       next: exercises => {
         this.exercises = exercises;
 
-        if (this.exercises.length === 0) {
+        if (this.exercises.length === 0 && this.contentBlocks.length === 0) {
           this.loading = false;
           this.emptyLesson = true;
           return;
@@ -913,6 +921,45 @@ export class LessonComponent implements OnInit {
       error: () => {
         this.loading = false;
         this.errorMessage = 'Impossible de démarrer la leçon.';
+      }
+    });
+  }
+
+
+  completeCourseOnlyLesson(): void {
+    if (this.answering || this.completed) {
+      return;
+    }
+
+    this.loading = true;
+    this.answering = true;
+
+    this.api.startLesson(this.lessonId).subscribe({
+      next: start => {
+        this.attemptId = start.attemptId;
+
+        this.api.completeLesson(this.attemptId).subscribe({
+          next: result => {
+            this.result = result;
+            this.completed = true;
+            this.readingMode = false;
+            this.exercise = null;
+            this.feedback = '';
+            this.answering = false;
+            this.loading = false;
+            this.soundService.playComplete();
+          },
+          error: () => {
+            this.answering = false;
+            this.loading = false;
+            this.errorMessage = 'Impossible de terminer la lecture.';
+          }
+        });
+      },
+      error: () => {
+        this.answering = false;
+        this.loading = false;
+        this.errorMessage = 'Impossible de démarrer la lecture.';
       }
     });
   }

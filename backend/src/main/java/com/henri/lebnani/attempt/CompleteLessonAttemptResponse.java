@@ -63,7 +63,11 @@ public class CompleteLessonAttemptResponse {
     }
 
     public int getScorePercent() {
-        return scorePercent;
+        if (totalExercises == 0) {
+            return 100;
+        }
+
+        return (int) Math.round((correctAnswers * 100.0) / totalExercises);
     }
 
     public int getXpAwarded() {

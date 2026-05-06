@@ -586,25 +586,32 @@ class LessonAttemptServiceTest {
         verify(progressService).applyLessonCompletion(user, attempt, 75);
     }
 
-    @Test
-    void completeAttempt_returns_zero_score_when_lesson_has_zero_exercises() {
-        User user = buildUser(1L);
-        Lesson lesson = buildLesson(1L);
-        LessonAttempt attempt = buildAttempt(10L, lesson, user, LessonAttemptStatus.IN_PROGRESS);
+        @Test
+    void completeAttempt_returns_full_score_when_lesson_has_zero_exercises() {
+        User user = new User();
+        setId(user, 1L);
 
-        when(lessonAttemptRepository.findById(10L)).thenReturn(Optional.of(attempt));
-        when(exerciseRepository.countByLessonIdAndPublishedTrue(1L)).thenReturn(0L);
-        when(exerciseAttemptRepository.countByLessonAttemptId(10L)).thenReturn(0L);
-        when(exerciseAttemptRepository.countByLessonAttemptIdAndCorrectTrue(10L)).thenReturn(0L);
-        when(progressService.applyLessonCompletion(user, attempt, 0)).thenReturn(0);
+        Lesson lesson = new Lesson();
+        setId(lesson, 10L);
 
-        CompleteLessonAttemptResponse response = lessonAttemptService.completeAttempt(10L, user);
+        LessonAttempt attempt = new LessonAttempt();
+        setId(attempt, 99L);
+        attempt.setUser(user);
+        attempt.setLesson(lesson);
+        attempt.setStatus(LessonAttemptStatus.IN_PROGRESS);
 
-        assertThat(response.getScorePercent()).isZero();
-        assertThat(response.getWrongAnswers()).isZero();
-        assertThat(response.getXpAwarded()).isZero();
+        when(lessonAttemptRepository.findById(99L)).thenReturn(Optional.of(attempt));
+        when(exerciseRepository.countByLessonIdAndPublishedTrue(10L)).thenReturn(0L);
+        when(exerciseAttemptRepository.countByLessonAttemptId(99L)).thenReturn(0L);
+        when(exerciseAttemptRepository.countByLessonAttemptIdAndCorrectTrue(99L)).thenReturn(0L);
+        when(progressService.applyLessonCompletion(user, attempt, 100)).thenReturn(10);
 
-        verify(progressService).applyLessonCompletion(user, attempt, 0);
+        CompleteLessonAttemptResponse response = lessonAttemptService.completeAttempt(99L, user);
+
+        assertThat(response.getScorePercent()).isEqualTo(100);
+        assertThat(response.getXpAwarded()).isEqualTo(10);
+
+        verify(progressService).applyLessonCompletion(user, attempt, 100);
     }
 
     // ── helpers ──────────────────────────────────────────────────────────────

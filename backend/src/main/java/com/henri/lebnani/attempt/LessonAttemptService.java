@@ -287,9 +287,9 @@ public class LessonAttemptService {
         }
 
         long correctAnswers = exerciseAttemptRepository.countByLessonAttemptIdAndCorrectTrue(attempt.getId());
-
+        
         int scorePercent = totalExercises == 0
-                ? 0
+                ? 100
                 : (int) Math.round((correctAnswers * 100.0) / totalExercises);
 
         attempt.markCompleted();

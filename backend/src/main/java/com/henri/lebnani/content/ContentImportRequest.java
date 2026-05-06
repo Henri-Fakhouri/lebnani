@@ -61,9 +61,8 @@ public class ContentImportRequest {
         @Valid
         private List<ContentBlockImport> contentBlocks = List.of();
 
-        @NotEmpty
         @Valid
-        private List<ExerciseImport> exercises;
+        private List<ExerciseImport> exercises = List.of();
 
         public String getTitle() {
             return title;
@@ -82,7 +81,7 @@ public class ContentImportRequest {
         }
 
         public List<ExerciseImport> getExercises() {
-            return exercises;
+            return exercises == null ? List.of() : exercises;
         }
     }
 

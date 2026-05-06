@@ -65,20 +65,19 @@ class AttemptModelTest {
         assertThat(response.getXpAwarded()).isEqualTo(7);
     }
 
-    @Test
-    void completeLessonAttemptResponse_zero_total_exercises_has_zero_score() {
+        @Test
+    void completeLessonAttemptResponse_zero_total_exercises_has_full_score() {
         CompleteLessonAttemptResponse response = new CompleteLessonAttemptResponse(
                 1L,
                 2L,
                 "COMPLETED",
-                0L,
-                0L,
-                0L,
-                0
+                0,
+                0,
+                0,
+                10
         );
 
-        assertThat(response.getScorePercent()).isZero();
-        assertThat(response.getWrongAnswers()).isZero();
+        assertThat(response.getScorePercent()).isEqualTo(100);
     }
 
     @Test

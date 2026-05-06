@@ -224,8 +224,9 @@ describe('LessonComponent', () => {
     );
   });
 
-  it('should show empty lesson state when no exercises exist', async () => {
+   it('should show empty lesson state when no content and no exercises exist', async () => {
     await createComponent({
+      contentBlocks: [],
       exercises: []
     });
 
@@ -576,20 +577,65 @@ describe('LessonComponent', () => {
     expect(routerMock.navigateByUrl).toHaveBeenCalledWith('/course');
   });
 
-  it('should navigate back from empty lesson button click', async () => {
+   it('should navigate back from empty lesson button click', async () => {
     await createComponent({
+      contentBlocks: [],
       exercises: []
     });
 
     fixture.detectChanges();
 
-    const button = fixture.nativeElement.querySelector('button') as HTMLButtonElement;
+    const button = fixture.nativeElement.querySelector('.primary-button') as HTMLButtonElement;
 
     button.click();
 
     expect(routerMock.navigateByUrl).toHaveBeenCalledWith('/course');
   });
 
+    it('should show course-only reading mode when content exists but no exercises exist', async () => {
+    await createComponent({
+      exercises: []
+    });
+
+    expect(component.loading).toBe(false);
+    expect(component.emptyLesson).toBe(false);
+    expect(component.readingMode).toBe(true);
+    expect(component.contentBlocks.length).toBe(4);
+
+    fixture.detectChanges();
+
+    const html = fixture.nativeElement as HTMLElement;
+
+    expect(html.textContent).toContain('Comprendre mar7aba');
+    expect(html.textContent).toContain('Terminer la lecture');
+    expect(html.textContent).not.toContain('Leçon vide');
+  });
+
+    it('should complete course-only lesson from reading mode button click', async () => {
+    await createComponent({
+      exercises: [],
+      completeLessonResponse: {
+        scorePercent: 100,
+        correctAnswers: 0,
+        totalExercises: 0,
+        xpAwarded: 10
+      }
+    });
+
+    fixture.detectChanges();
+
+    const button = fixture.nativeElement.querySelector('.next-button') as HTMLButtonElement;
+
+    button.click();
+
+    expect(apiServiceMock.startLesson).toHaveBeenCalledWith(4);
+    expect(apiServiceMock.completeLesson).toHaveBeenCalledWith(99);
+    expect(component.completed).toBe(true);
+    expect(component.loading).toBe(false);
+    expect(component.result.scorePercent).toBe(100);
+  });
+
+  
   it('should start exercises from reading mode button click', async () => {
     await createComponent();
 
