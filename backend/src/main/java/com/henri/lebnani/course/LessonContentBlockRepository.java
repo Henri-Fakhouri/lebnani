@@ -7,4 +7,6 @@ import java.util.List;
 public interface LessonContentBlockRepository extends JpaRepository<LessonContentBlock, Long> {
 
     List<LessonContentBlock> findByLessonIdOrderByDisplayOrderAsc(Long lessonId);
+
+    long countByLessonId(Long lessonId);
 }

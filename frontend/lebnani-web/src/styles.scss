@@ -249,3 +249,47 @@ a {
   );
   z-index: 2;
 }
+
+.flag-stripe {
+  position: relative;
+  height: 10px;
+  margin-bottom: 18px;
+  overflow: hidden;
+  border-radius: 999px;
+  background:
+    linear-gradient(
+      90deg,
+      var(--lb-red) 0 28%,
+      var(--white) 28% 72%,
+      var(--lb-red) 72% 100%
+    );
+  box-shadow: 0 10px 22px rgba(31, 41, 51, 0.08);
+}
+
+.flag-stripe::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 18px;
+  height: 12px;
+  transform: translate(-50%, -50%);
+  background: var(--cedar-green);
+  clip-path: polygon(
+    50% 0%,
+    78% 20%,
+    64% 20%,
+    88% 42%,
+    68% 42%,
+    100% 68%,
+    58% 68%,
+    58% 100%,
+    42% 100%,
+    42% 68%,
+    0% 68%,
+    32% 42%,
+    12% 42%,
+    36% 20%,
+    22% 20%
+  );
+}

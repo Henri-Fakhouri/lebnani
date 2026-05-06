@@ -7,7 +7,9 @@ import com.henri.lebnani.course.CourseRepository;
 import com.henri.lebnani.course.CourseUnit;
 import com.henri.lebnani.course.CourseUnitRepository;
 import com.henri.lebnani.course.Lesson;
+import com.henri.lebnani.course.LessonContentBlockRepository;
 import com.henri.lebnani.course.LessonRepository;
+import com.henri.lebnani.exercise.ExerciseRepository;
 import com.henri.lebnani.user.User;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -37,6 +39,9 @@ class ProgressServiceTest {
     @Mock CourseRepository courseRepository;
     @Mock CourseUnitRepository courseUnitRepository;
     @Mock LessonRepository lessonRepository;
+    @Mock LessonContentBlockRepository lessonContentBlockRepository;
+    @Mock ExerciseRepository exerciseRepository;
+
     @InjectMocks ProgressService progressService;
 
     // ── applyLessonCompletion ────────────────────────────────────────────────
@@ -260,6 +265,15 @@ class ProgressServiceTest {
         when(userLessonProgressRepository.findByUserId(1L))
                 .thenReturn(List.of(completedProgress, incompleteProgress));
 
+        when(lessonContentBlockRepository.countByLessonId(100L)).thenReturn(2L);
+        when(exerciseRepository.countByLessonIdAndPublishedTrue(100L)).thenReturn(3L);
+
+        when(lessonContentBlockRepository.countByLessonId(200L)).thenReturn(0L);
+        when(exerciseRepository.countByLessonIdAndPublishedTrue(200L)).thenReturn(2L);
+
+        when(lessonContentBlockRepository.countByLessonId(300L)).thenReturn(1L);
+        when(exerciseRepository.countByLessonIdAndPublishedTrue(300L)).thenReturn(0L);
+
         CourseProgressResponse response = progressService.getCourseProgress(1L, user);
 
         assertThat(response.getCourseId()).isEqualTo(1L);
@@ -285,17 +299,28 @@ class ProgressServiceTest {
         assertThat(completedLesson.getDisplayOrder()).isEqualTo(1);
         assertThat(completedLesson.isCompleted()).isTrue();
         assertThat(completedLesson.getBestScorePercent()).isEqualTo(90);
+        assertThat(completedLesson.getContentBlockCount()).isEqualTo(2);
+        assertThat(completedLesson.getExerciseCount()).isEqualTo(3);
+        assertThat(completedLesson.getLessonMode()).isEqualTo("COURSE_AND_EXERCISE");
 
         LessonProgressResponse incompleteLesson = firstUnit.getLessons().get(1);
         assertThat(incompleteLesson.getTitle()).isEqualTo("Lesson 2");
         assertThat(incompleteLesson.isCompleted()).isFalse();
         assertThat(incompleteLesson.getBestScorePercent()).isEqualTo(40);
+        assertThat(incompleteLesson.getContentBlockCount()).isZero();
+        assertThat(incompleteLesson.getExerciseCount()).isEqualTo(2);
+        assertThat(incompleteLesson.getLessonMode()).isEqualTo("PRACTICE_ONLY");
 
         UnitProgressResponse secondUnit = response.getUnits().get(1);
         assertThat(secondUnit.getTotalLessons()).isEqualTo(1);
         assertThat(secondUnit.getCompletedLessons()).isZero();
         assertThat(secondUnit.getCompletionPercent()).isZero();
-        assertThat(secondUnit.getLessons().get(0).getBestScorePercent()).isZero();
+
+        LessonProgressResponse courseOnlyLesson = secondUnit.getLessons().get(0);
+        assertThat(courseOnlyLesson.getBestScorePercent()).isZero();
+        assertThat(courseOnlyLesson.getContentBlockCount()).isEqualTo(1);
+        assertThat(courseOnlyLesson.getExerciseCount()).isZero();
+        assertThat(courseOnlyLesson.getLessonMode()).isEqualTo("COURSE_ONLY");
 
         UnitProgressResponse thirdUnit = response.getUnits().get(2);
         assertThat(thirdUnit.getTotalLessons()).isZero();

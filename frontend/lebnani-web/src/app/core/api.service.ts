@@ -27,6 +27,9 @@ export interface LessonProgressResponse {
   displayOrder: number;
   completed: boolean;
   bestScorePercent: number;
+  contentBlockCount: number;
+  exerciseCount: number;
+  lessonMode: 'COURSE_AND_EXERCISE' | 'COURSE_ONLY' | 'PRACTICE_ONLY' | 'EMPTY';
 }
 
 export interface LessonContentBlockResponse {

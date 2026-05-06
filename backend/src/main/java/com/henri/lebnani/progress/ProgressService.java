@@ -17,7 +17,9 @@ import com.henri.lebnani.course.CourseRepository;
 import com.henri.lebnani.course.CourseUnit;
 import com.henri.lebnani.course.CourseUnitRepository;
 import com.henri.lebnani.course.Lesson;
+import com.henri.lebnani.course.LessonContentBlockRepository;
 import com.henri.lebnani.course.LessonRepository;
+import com.henri.lebnani.exercise.ExerciseRepository;
 import com.henri.lebnani.user.User;
 
 @Service
@@ -30,6 +32,8 @@ public class ProgressService {
     private final CourseRepository courseRepository;
     private final CourseUnitRepository courseUnitRepository;
     private final LessonRepository lessonRepository;
+    private final LessonContentBlockRepository lessonContentBlockRepository;
+    private final ExerciseRepository exerciseRepository;
 
     public ProgressService(
             XpCalculator xpCalculator,
@@ -38,7 +42,9 @@ public class ProgressService {
             StreakStateRepository streakStateRepository,
             CourseRepository courseRepository,
             CourseUnitRepository courseUnitRepository,
-            LessonRepository lessonRepository
+            LessonRepository lessonRepository,
+            LessonContentBlockRepository lessonContentBlockRepository,
+            ExerciseRepository exerciseRepository
     ) {
         this.xpCalculator = xpCalculator;
         this.xpEventRepository = xpEventRepository;
@@ -47,6 +53,8 @@ public class ProgressService {
         this.courseRepository = courseRepository;
         this.courseUnitRepository = courseUnitRepository;
         this.lessonRepository = lessonRepository;
+        this.lessonContentBlockRepository = lessonContentBlockRepository;
+        this.exerciseRepository = exerciseRepository;
     }
 
     @Transactional
@@ -153,12 +161,17 @@ public class ProgressService {
                                         ? 0
                                         : lessonProgress.getBestScorePercent();
 
+                                int contentBlockCount = (int) lessonContentBlockRepository.countByLessonId(lesson.getId());
+                                int exerciseCount = (int) exerciseRepository.countByLessonIdAndPublishedTrue(lesson.getId());
+
                                 return new LessonProgressResponse(
                                         lesson.getId(),
                                         lesson.getTitle(),
                                         lesson.getDisplayOrder(),
                                         completed,
-                                        bestScorePercent
+                                        bestScorePercent,
+                                        contentBlockCount,
+                                        exerciseCount
                                 );
                             })
                             .toList();

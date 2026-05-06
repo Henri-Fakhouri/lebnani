@@ -1,6 +1,10 @@
 import { Component, OnInit } from '@angular/core';
 import { Router } from '@angular/router';
-import { ApiService, CourseProgressResponse, UnitProgressResponse } from '../../core/api.service';
+import {
+  ApiService,
+  CourseProgressResponse,
+  UnitProgressResponse
+} from '../../core/api.service';
 import { AuthService } from '../../core/auth.service';
 import { MascotComponent } from '../../shared/mascot/mascot.component';
 
@@ -185,7 +189,13 @@ interface UserProgressResponse {
                       </span>
 
                       <span class="lesson-content">
-                        <strong>{{ lesson.title }}</strong>
+                        <span class="lesson-title-row">
+                          <strong>{{ lesson.title }}</strong>
+
+                          <span [class]="lessonModeBadgeClass(lesson.lessonMode)">
+                            {{ lessonModeLabel(lesson.lessonMode) }}
+                          </span>
+                        </span>
 
                         <small>
                           @if (isUnitLocked(unit)) {
@@ -225,50 +235,6 @@ interface UserProgressResponse {
     .course-shell {
       width: min(100%, 1040px);
       margin: 0 auto;
-    }
-
-    .flag-stripe {
-      position: relative;
-      height: 10px;
-      margin-bottom: 18px;
-      overflow: hidden;
-      border-radius: 999px;
-      background:
-        linear-gradient(
-          90deg,
-          var(--lb-red) 0 28%,
-          var(--white) 28% 72%,
-          var(--lb-red) 72% 100%
-        );
-      box-shadow: 0 10px 22px rgba(31, 41, 51, 0.08);
-    }
-
-    .flag-stripe::after {
-      content: "";
-      position: absolute;
-      top: 50%;
-      left: 50%;
-      width: 18px;
-      height: 12px;
-      transform: translate(-50%, -50%);
-      background: var(--cedar-green);
-      clip-path: polygon(
-        50% 0%,
-        78% 20%,
-        64% 20%,
-        88% 42%,
-        68% 42%,
-        100% 68%,
-        58% 68%,
-        58% 100%,
-        42% 100%,
-        42% 68%,
-        0% 68%,
-        32% 42%,
-        12% 42%,
-        36% 20%,
-        22% 20%
-      );
     }
 
     .hero-card {
@@ -733,7 +699,14 @@ interface UserProgressResponse {
 
     .lesson-content {
       display: grid;
-      gap: 3px;
+      gap: 4px;
+    }
+
+    .lesson-title-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      align-items: center;
     }
 
     .lesson-content strong {
@@ -743,6 +716,40 @@ interface UserProgressResponse {
     .lesson-content small {
       color: var(--text-muted);
       font-weight: 700;
+    }
+
+    .lesson-mode-badge {
+      display: inline-flex;
+      width: fit-content;
+      align-items: center;
+      padding: 4px 8px;
+      border-radius: 999px;
+      font-size: 10px;
+      font-weight: 950;
+      line-height: 1;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      white-space: nowrap;
+    }
+
+    .mode-mixed {
+      color: var(--cedar-green-dark);
+      background: var(--cedar-green-soft);
+    }
+
+    .mode-course {
+      color: #6f4c00;
+      background: #fff1c9;
+    }
+
+    .mode-practice {
+      color: #1b5f82;
+      background: rgba(77, 168, 218, 0.16);
+    }
+
+    .mode-empty {
+      color: var(--text-muted);
+      background: var(--cream-2);
     }
 
     .lesson-action {
@@ -936,6 +943,36 @@ export class CourseProgressComponent implements OnInit {
     const previousUnit = this.progress.units[unitIndex - 1];
 
     return `Termine d’abord la section précédente : ${previousUnit.title}.`;
+  }
+
+  lessonModeLabel(mode: string): string {
+    switch (mode) {
+      case 'COURSE_AND_EXERCISE':
+        return 'Cours + exercices';
+      case 'COURSE_ONLY':
+        return 'Cours';
+      case 'PRACTICE_ONLY':
+        return 'Exercices';
+      case 'EMPTY':
+        return 'Vide';
+      default:
+        return 'Leçon';
+    }
+  }
+
+  lessonModeBadgeClass(mode: string): string {
+    switch (mode) {
+      case 'COURSE_AND_EXERCISE':
+        return 'lesson-mode-badge mode-mixed';
+      case 'COURSE_ONLY':
+        return 'lesson-mode-badge mode-course';
+      case 'PRACTICE_ONLY':
+        return 'lesson-mode-badge mode-practice';
+      case 'EMPTY':
+        return 'lesson-mode-badge mode-empty';
+      default:
+        return 'lesson-mode-badge';
+    }
   }
 
   openLesson(lessonId: number, unit?: UnitProgressResponse): void {
