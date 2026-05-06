@@ -129,6 +129,10 @@ public class LessonAttemptService {
             return validateMatchPairsAnswer(exercise, request);
         }
 
+        if (exercise.getType() == ExerciseType.WORD_BANK_SENTENCE) {
+            return validateWordBankSentenceAnswer(exercise, request);
+        }
+
         throw new BusinessException("UNSUPPORTED_EXERCISE_TYPE", "Unsupported exercise type.");
     }
 
@@ -138,7 +142,8 @@ public class LessonAttemptService {
                     "selectedOptionId is required for multiple choice exercises.");
         }
 
-        ExerciseOption selectedOption = exerciseOptionRepository.findById(Objects.requireNonNull(request.getSelectedOptionId()))
+        ExerciseOption selectedOption = exerciseOptionRepository
+                .findById(Objects.requireNonNull(request.getSelectedOptionId()))
                 .orElseThrow(() -> new BusinessException("OPTION_NOT_FOUND", "Selected option not found."));
 
         if (!selectedOption.getExercise().getId().equals(exercise.getId())) {
@@ -233,6 +238,28 @@ public class LessonAttemptService {
         String right = answerNormalizer.normalize(parts[1]);
 
         return left + "=>" + right;
+    }
+
+    private AnswerValidationResult validateWordBankSentenceAnswer(Exercise exercise, AnswerSubmissionRequest request) {
+        if (request.getAnswer() == null || request.getAnswer().isBlank()) {
+            throw new BusinessException("ANSWER_REQUIRED", "answer is required for word bank sentence exercises.");
+        }
+
+        if (exercise.getCorrectAnswer() == null || exercise.getCorrectAnswer().isBlank()) {
+            throw new BusinessException("CORRECT_ANSWER_MISSING", "Word bank sentence exercise has no correct answer.");
+        }
+
+        String submittedAnswer = request.getAnswer();
+        String normalizedAnswer = answerNormalizer.normalize(submittedAnswer);
+        String expectedAnswer = exercise.getCorrectAnswer();
+        String normalizedExpectedAnswer = answerNormalizer.normalize(expectedAnswer);
+
+        return new AnswerValidationResult(
+                submittedAnswer,
+                normalizedAnswer,
+                null,
+                normalizedAnswer.equals(normalizedExpectedAnswer),
+                expectedAnswer);
     }
 
     @Transactional

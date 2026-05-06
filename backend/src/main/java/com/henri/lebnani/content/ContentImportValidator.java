@@ -27,8 +27,7 @@ public class ContentImportValidator {
             if (unit.getDisplayOrder() != null && !seenOrders.add(unit.getDisplayOrder())) {
                 errors.add(new ContentValidationError(
                         "units",
-                        "Duplicate unit displayOrder: " + unit.getDisplayOrder()
-                ));
+                        "Duplicate unit displayOrder: " + unit.getDisplayOrder()));
             }
         }
     }
@@ -46,16 +45,14 @@ public class ContentImportValidator {
     private void validateDuplicateLessonOrders(
             ContentImportRequest.UnitImport unit,
             String unitPath,
-            List<ContentValidationError> errors
-    ) {
+            List<ContentValidationError> errors) {
         Set<Integer> seenOrders = new HashSet<>();
 
         for (ContentImportRequest.LessonImport lesson : unit.getLessons()) {
             if (lesson.getDisplayOrder() != null && !seenOrders.add(lesson.getDisplayOrder())) {
                 errors.add(new ContentValidationError(
                         unitPath + ".lessons",
-                        "Duplicate lesson displayOrder: " + lesson.getDisplayOrder()
-                ));
+                        "Duplicate lesson displayOrder: " + lesson.getDisplayOrder()));
             }
         }
     }
@@ -63,8 +60,7 @@ public class ContentImportValidator {
     private void validateLessons(
             ContentImportRequest.UnitImport unit,
             String unitPath,
-            List<ContentValidationError> errors
-    ) {
+            List<ContentValidationError> errors) {
         for (int lessonIndex = 0; lessonIndex < unit.getLessons().size(); lessonIndex++) {
             ContentImportRequest.LessonImport lesson = unit.getLessons().get(lessonIndex);
             String lessonPath = unitPath + ".lessons[" + lessonIndex + "]";
@@ -77,16 +73,14 @@ public class ContentImportValidator {
     private void validateDuplicateExerciseOrders(
             ContentImportRequest.LessonImport lesson,
             String lessonPath,
-            List<ContentValidationError> errors
-    ) {
+            List<ContentValidationError> errors) {
         Set<Integer> seenOrders = new HashSet<>();
 
         for (ContentImportRequest.ExerciseImport exercise : lesson.getExercises()) {
             if (exercise.getDisplayOrder() != null && !seenOrders.add(exercise.getDisplayOrder())) {
                 errors.add(new ContentValidationError(
                         lessonPath + ".exercises",
-                        "Duplicate exercise displayOrder: " + exercise.getDisplayOrder()
-                ));
+                        "Duplicate exercise displayOrder: " + exercise.getDisplayOrder()));
             }
         }
     }
@@ -94,8 +88,7 @@ public class ContentImportValidator {
     private void validateExercises(
             ContentImportRequest.LessonImport lesson,
             String lessonPath,
-            List<ContentValidationError> errors
-    ) {
+            List<ContentValidationError> errors) {
         for (int exerciseIndex = 0; exerciseIndex < lesson.getExercises().size(); exerciseIndex++) {
             ContentImportRequest.ExerciseImport exercise = lesson.getExercises().get(exerciseIndex);
             String exercisePath = lessonPath + ".exercises[" + exerciseIndex + "]";
@@ -108,25 +101,49 @@ public class ContentImportValidator {
                 validateTypedAnswer(exercise, exercisePath, errors);
             } else if ("MATCH_PAIRS".equals(type)) {
                 validateMatchPairs(exercise, exercisePath, errors);
+            } else if ("WORD_BANK_SENTENCE".equals(type)) {
+                validateWordBankSentence(exercise, exercisePath, errors);
             } else {
                 errors.add(new ContentValidationError(
                         exercisePath + ".type",
-                        "Unsupported exercise type: " + exercise.getType()
-                ));
+                        "Unsupported exercise type: " + exercise.getType()));
             }
         }
+    }
+
+        private void validateWordBankSentence(
+            ContentImportRequest.ExerciseImport exercise,
+            String exercisePath,
+            List<ContentValidationError> errors
+    ) {
+        boolean hasCorrectAnswer = exercise.getCorrectAnswer() != null && !exercise.getCorrectAnswer().isBlank();
+
+        if (!hasCorrectAnswer) {
+            errors.add(new ContentValidationError(
+                    exercisePath,
+                    "WORD_BANK_SENTENCE exercises must have correctAnswer."
+            ));
+        }
+
+        if (exercise.getOptions().isEmpty()) {
+            errors.add(new ContentValidationError(
+                    exercisePath + OPTIONS_PATH,
+                    "WORD_BANK_SENTENCE exercises must have word options."
+            ));
+            return;
+        }
+
+        validateDuplicateOptionOrders(exercise, exercisePath, errors);
     }
 
     private void validateMultipleChoice(
             ContentImportRequest.ExerciseImport exercise,
             String exercisePath,
-            List<ContentValidationError> errors
-    ) {
+            List<ContentValidationError> errors) {
         if (exercise.getOptions().isEmpty()) {
             errors.add(new ContentValidationError(
                     exercisePath + OPTIONS_PATH,
-                    "MULTIPLE_CHOICE exercises must have options."
-            ));
+                    "MULTIPLE_CHOICE exercises must have options."));
             return;
         }
 
@@ -138,8 +155,7 @@ public class ContentImportValidator {
         if (correctOptions != 1) {
             errors.add(new ContentValidationError(
                     exercisePath + OPTIONS_PATH,
-                    "MULTIPLE_CHOICE exercises must have exactly one correct option."
-            ));
+                    "MULTIPLE_CHOICE exercises must have exactly one correct option."));
         }
 
         validateDuplicateOptionOrders(exercise, exercisePath, errors);
@@ -148,29 +164,25 @@ public class ContentImportValidator {
     private void validateTypedAnswer(
             ContentImportRequest.ExerciseImport exercise,
             String exercisePath,
-            List<ContentValidationError> errors
-    ) {
+            List<ContentValidationError> errors) {
         boolean hasCorrectAnswer = exercise.getCorrectAnswer() != null && !exercise.getCorrectAnswer().isBlank();
         boolean hasAcceptedAnswers = !exercise.getAcceptedAnswers().isEmpty();
 
         if (!hasCorrectAnswer && !hasAcceptedAnswers) {
             errors.add(new ContentValidationError(
                     exercisePath,
-                    "TYPE_ANSWER exercises must have correctAnswer or acceptedAnswers."
-            ));
+                    "TYPE_ANSWER exercises must have correctAnswer or acceptedAnswers."));
         }
     }
 
     private void validateMatchPairs(
             ContentImportRequest.ExerciseImport exercise,
             String exercisePath,
-            List<ContentValidationError> errors
-    ) {
+            List<ContentValidationError> errors) {
         if (exercise.getOptions().isEmpty()) {
             errors.add(new ContentValidationError(
                     exercisePath + OPTIONS_PATH,
-                    "MATCH_PAIRS exercises must have pair options."
-            ));
+                    "MATCH_PAIRS exercises must have pair options."));
             return;
         }
 
@@ -180,8 +192,7 @@ public class ContentImportValidator {
             if (option.getText() == null || !option.getText().contains("=>")) {
                 errors.add(new ContentValidationError(
                         exercisePath + OPTIONS_PATH,
-                        "MATCH_PAIRS option text must use the format: left => right"
-                ));
+                        "MATCH_PAIRS option text must use the format: left => right"));
             }
         }
     }
@@ -189,16 +200,14 @@ public class ContentImportValidator {
     private void validateDuplicateOptionOrders(
             ContentImportRequest.ExerciseImport exercise,
             String exercisePath,
-            List<ContentValidationError> errors
-    ) {
+            List<ContentValidationError> errors) {
         Set<Integer> seenOrders = new HashSet<>();
 
         for (ContentImportRequest.OptionImport option : exercise.getOptions()) {
             if (option.getDisplayOrder() != null && !seenOrders.add(option.getDisplayOrder())) {
                 errors.add(new ContentValidationError(
                         exercisePath + OPTIONS_PATH,
-                        "Duplicate option displayOrder: " + option.getDisplayOrder()
-                ));
+                        "Duplicate option displayOrder: " + option.getDisplayOrder()));
             }
         }
     }

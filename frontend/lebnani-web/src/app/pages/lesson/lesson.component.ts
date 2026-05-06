@@ -7,11 +7,12 @@ import { AuthService } from '../../core/auth.service';
 import { MascotComponent, MascotMood } from '../../shared/mascot/mascot.component';
 import { SoundService } from '../../core/sound.service';
 import { MatchPairsExerciseComponent } from './match-pairs-exercise.component';
+import { WordBankSentenceExerciseComponent } from './word-bank-sentence-exercise.component';
 
 @Component({
   selector: 'app-lesson',
   standalone: true,
-  imports: [FormsModule, MascotComponent, MatchPairsExerciseComponent],
+  imports: [FormsModule, MascotComponent, MatchPairsExerciseComponent, WordBankSentenceExerciseComponent],
   template: `
     <main class="lesson-page">
       <div class="lesson-shell">
@@ -188,6 +189,14 @@ import { MatchPairsExerciseComponent } from './match-pairs-exercise.component';
               </div>
             }
 
+                      @if (exercise.type === 'WORD_BANK_SENTENCE') {
+            <app-word-bank-sentence-exercise
+              [exercise]="exercise"
+              [disabled]="answering || !!feedback"
+              (submitted)="answerWordBankSentence($event)"
+            />
+          }
+            
                       @if (exercise.type === 'MATCH_PAIRS') {
             <app-match-pairs-exercise
               [exercise]="exercise"
@@ -976,7 +985,7 @@ export class LessonComponent implements OnInit {
     });
   }
 
-    answerMatchPairs(answer: string): void {
+  answerMatchPairs(answer: string): void {
     if (this.answering || this.feedback || !answer.trim()) {
       return;
     }
@@ -991,6 +1000,25 @@ export class LessonComponent implements OnInit {
       error: () => {
         this.answering = false;
         this.errorMessage = 'Impossible de valider les paires.';
+      }
+    });
+  }
+
+  answerWordBankSentence(answer: string): void {
+    if (this.answering || this.feedback || !answer.trim()) {
+      return;
+    }
+
+    this.answering = true;
+
+    this.api.submitAnswer(this.attemptId, {
+      exerciseId: this.exercise.id,
+      answer
+    }).subscribe({
+      next: res => this.handleAnswerResult(res.correct, res.expectedAnswer),
+      error: () => {
+        this.answering = false;
+        this.errorMessage = 'Impossible de valider la phrase.';
       }
     });
   }
