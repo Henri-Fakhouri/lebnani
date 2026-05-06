@@ -12,13 +12,16 @@ type MatchPair = {
   standalone: true,
   template: `
     <div class="match-pairs">
-      <div class="match-column">
-        <h2>Libanais</h2>
+      <div class="match-column match-column-left">
+        <div class="column-header">
+          <span class="language-dot"></span>
+          <h2>Libanais</h2>
+        </div>
 
         @for (item of leftItems; track item) {
           <button
             type="button"
-            class="match-button"
+            class="match-button match-button-left"
             [class.selected]="selectedLeft === item"
             [class.matched]="isLeftMatched(item)"
             [disabled]="disabled || isLeftMatched(item)"
@@ -29,13 +32,16 @@ type MatchPair = {
         }
       </div>
 
-      <div class="match-column">
-        <h2>Français</h2>
+      <div class="match-column match-column-right">
+        <div class="column-header">
+          <span class="language-dot"></span>
+          <h2>Français</h2>
+        </div>
 
         @for (item of rightItems; track item) {
           <button
             type="button"
-            class="match-button"
+            class="match-button match-button-right"
             [class.matched]="isRightMatched(item)"
             [class.wrong]="wrongRight === item"
             [disabled]="disabled || isRightMatched(item)"
@@ -57,7 +63,7 @@ type MatchPair = {
     .match-pairs {
       display: grid;
       grid-template-columns: repeat(2, minmax(0, 1fr));
-      gap: 16px;
+      gap: 18px;
       margin-top: 18px;
     }
 
@@ -65,25 +71,68 @@ type MatchPair = {
       display: grid;
       gap: 10px;
       align-content: start;
+      padding: 14px;
+      border: 1px solid var(--border-soft, #e8ded0);
+      border-radius: 22px;
+      background: rgba(255, 255, 255, 0.66);
     }
 
-    .match-column h2 {
-      margin: 0 0 4px;
-      font-size: 15px;
-      color: var(--text-muted, #65726a);
+    .match-column-left {
+      box-shadow: inset 5px 0 0 rgba(214, 40, 40, 0.72);
+    }
+
+    .match-column-right {
+      box-shadow: inset 5px 0 0 rgba(77, 168, 218, 0.72);
+    }
+
+    .column-header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 2px;
+    }
+
+    .column-header h2 {
+      margin: 0;
+      font-size: 14px;
+      font-weight: 950;
       text-transform: uppercase;
-      letter-spacing: 0.04em;
+      letter-spacing: 0.08em;
+    }
+
+    .match-column-left .column-header h2 {
+      color: var(--lb-red, #d62828);
+    }
+
+    .match-column-right .column-header h2 {
+      color: var(--sea-blue, #4da8da);
+    }
+
+    .language-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 999px;
+      background: currentColor;
+    }
+
+    .match-column-left .language-dot {
+      color: var(--lb-red, #d62828);
+    }
+
+    .match-column-right .language-dot {
+      color: var(--sea-blue, #4da8da);
     }
 
     .match-button {
       width: 100%;
+      min-height: 48px;
       border: 2px solid #e7e1d6;
-      border-radius: 18px;
-      padding: 14px 16px;
+      border-radius: 17px;
+      padding: 13px 15px;
       background: #fffdf8;
       color: #18251d;
       text-align: center;
-      font-weight: 900;
+      font-weight: 950;
       font-size: 15px;
       transition:
         background 0.14s ease,
@@ -94,23 +143,32 @@ type MatchPair = {
 
     .match-button:not(:disabled):hover {
       transform: translateY(-1px);
-      border-color: var(--cedar-green, #1f5f43);
-      background: #f8fbf6;
-      box-shadow: 0 8px 18px rgba(0, 0, 0, 0.06);
+      background: #ffffff;
+      box-shadow: 0 9px 20px rgba(0, 0, 0, 0.06);
+    }
+
+    .match-button-left:not(:disabled):hover,
+    .match-button-left.selected {
+      border-color: var(--lb-red, #d62828);
+      background: var(--lb-red-soft, #fde2e2);
+      color: var(--lb-red-dark, #a61f1f);
+    }
+
+    .match-button-right:not(:disabled):hover {
+      border-color: var(--sea-blue, #4da8da);
+      background: rgba(77, 168, 218, 0.12);
+      color: #1b5f82;
     }
 
     .match-button.selected {
-      border-color: var(--cedar-green, #1f5f43);
-      background: var(--cedar-green-soft, #dceee3);
-      color: var(--cedar-green-dark, #143d2b);
-      box-shadow: 0 8px 18px rgba(31, 95, 67, 0.14);
+      box-shadow: 0 8px 18px rgba(214, 40, 40, 0.14);
     }
 
     .match-button.matched {
-      border-color: #1b7f3a;
-      background: #1b7f3a;
+      border-color: var(--cedar-green, #1f5f43);
+      background: var(--cedar-green, #1f5f43);
       color: white;
-      opacity: 0.78;
+      opacity: 0.86;
     }
 
     .match-button.wrong {
@@ -123,10 +181,10 @@ type MatchPair = {
     .match-hint {
       margin: 14px 0 0;
       padding: 12px 14px;
-      border-radius: 14px;
+      border-radius: 16px;
       background: #f3faf3;
       color: var(--cedar-green-dark, #143d2b);
-      font-weight: 800;
+      font-weight: 850;
     }
 
     .match-hint.error {

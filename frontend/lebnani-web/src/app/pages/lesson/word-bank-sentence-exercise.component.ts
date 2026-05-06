@@ -69,20 +69,21 @@ type WordBankItem = {
     }
 
     .selected-zone {
-      min-height: 78px;
+      min-height: 82px;
       display: flex;
       flex-wrap: wrap;
       align-items: center;
       gap: 10px;
       padding: 16px;
-      border: 2px dashed var(--border-soft, #e8ded0);
-      border-radius: 20px;
-      background: #fffdf8;
+      border: 2px dashed rgba(227, 212, 194, 0.95);
+      border-radius: 22px;
+      background:
+        linear-gradient(135deg, rgba(255, 255, 255, 0.96), rgba(255, 250, 242, 0.82));
     }
 
     .selected-zone.empty {
       color: var(--text-muted, #65726a);
-      font-weight: 800;
+      font-weight: 850;
     }
 
     .word-bank {
@@ -90,17 +91,18 @@ type WordBankItem = {
       flex-wrap: wrap;
       gap: 10px;
       padding: 16px;
-      border-radius: 20px;
-      background: #f8f4ec;
       border: 1px solid var(--border-soft, #e8ded0);
+      border-radius: 22px;
+      background:
+        linear-gradient(135deg, rgba(248, 244, 236, 0.94), rgba(255, 255, 255, 0.78));
     }
 
     .word-chip,
     .selected-word {
       border: 2px solid #e7e1d6;
       border-radius: 999px;
-      padding: 12px 16px;
-      font-weight: 900;
+      padding: 12px 17px;
+      font-weight: 950;
       background: white;
       color: #18251d;
       transition:
@@ -114,13 +116,20 @@ type WordBankItem = {
     .selected-word:not(:disabled):hover {
       transform: translateY(-1px);
       border-color: var(--cedar-green, #1f5f43);
-      box-shadow: 0 8px 18px rgba(0, 0, 0, 0.06);
+      box-shadow: 0 9px 20px rgba(0, 0, 0, 0.06);
     }
 
     .selected-word {
       background: var(--cedar-green-soft, #dceee3);
       color: var(--cedar-green-dark, #143d2b);
       border-color: var(--cedar-green, #1f5f43);
+    }
+
+    .selected-word::after {
+      content: "×";
+      margin-left: 8px;
+      opacity: 0.72;
+      font-weight: 950;
     }
 
     .word-bank-actions {
@@ -134,12 +143,13 @@ type WordBankItem = {
       border: 0;
       border-radius: 999px;
       padding: 14px 18px;
-      font-weight: 900;
+      font-weight: 950;
     }
 
     .primary-button {
       color: white;
       background: var(--cedar-green, #1f5f43);
+      box-shadow: 0 10px 22px rgba(31, 95, 67, 0.18);
     }
 
     .secondary-button {
@@ -150,6 +160,12 @@ type WordBankItem = {
     button:disabled {
       opacity: 0.55;
       cursor: not-allowed;
+    }
+
+    @media (max-width: 640px) {
+      .word-bank-actions {
+        grid-template-columns: 1fr;
+      }
     }
   `]
 })

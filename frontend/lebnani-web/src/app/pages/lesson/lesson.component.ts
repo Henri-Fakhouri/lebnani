@@ -144,13 +144,28 @@ import { WordBankSentenceExerciseComponent } from './word-bank-sentence-exercise
           @if (!loading && !errorMessage && !completed && !readingMode && exercise) {
             <section class="exercise-hero">
               <div class="exercise-copy">
-                <span class="eyebrow">Exercice</span>
-                <h1>{{ exercise.promptFr }}</h1>
+  <span [class]="exerciseTypeChipClass(exercise.type)">
+    {{ exerciseTypeLabel(exercise.type) }}
+  </span>
 
-                <div class="question-progress-bar">
-                  <div [style.width.%]="questionProgressPercent"></div>
-                </div>
-              </div>
+  @if (promptHasTarget(exercise.promptFr)) {
+    <div class="prompt-stack">
+      <span class="prompt-instruction">
+        {{ promptInstruction(exercise.promptFr) }}
+      </span>
+
+      <h1 class="prompt-target">
+        {{ promptTarget(exercise.promptFr) }}
+      </h1>
+    </div>
+  } @else {
+    <h1>{{ exercise.promptFr }}</h1>
+  }
+
+  <div class="question-progress-bar">
+    <div [style.width.%]="questionProgressPercent"></div>
+  </div>
+</div>
 
               <app-mascot
                 [mood]="currentMascotMood"
@@ -445,6 +460,60 @@ import { WordBankSentenceExerciseComponent } from './word-bank-sentence-exercise
       color: var(--text-muted, #65726a);
       font-weight: 600;
       line-height: 1.5;
+    }
+
+        .exercise-type-chip {
+      display: inline-flex;
+      width: fit-content;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 12px;
+      padding: 7px 12px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 950;
+      text-transform: uppercase;
+      letter-spacing: 0.07em;
+    }
+
+    .type-choice {
+      color: var(--cedar-green-dark, #143d2b);
+      background: var(--cedar-green-soft, #dceee3);
+    }
+
+    .type-written {
+      color: #6f4c00;
+      background: #fff1c9;
+    }
+
+    .type-match {
+      color: var(--lb-red-dark, #a61f1f);
+      background: var(--lb-red-soft, #fde2e2);
+    }
+
+    .type-sentence {
+      color: #1b5f82;
+      background: rgba(77, 168, 218, 0.16);
+    }
+
+    .prompt-stack {
+      display: grid;
+      gap: 6px;
+    }
+
+    .prompt-instruction {
+      color: var(--text-muted, #65726a);
+      font-size: 18px;
+      font-weight: 900;
+      letter-spacing: -0.02em;
+    }
+
+    .prompt-target {
+      color: var(--text-main, #1f2933);
+      font-size: clamp(36px, 5vw, 58px);
+      font-weight: 950;
+      letter-spacing: -0.055em;
+      line-height: 0.95;
     }
 
     .eyebrow {
@@ -838,6 +907,66 @@ export class LessonComponent implements OnInit {
     }
 
     return 'happy';
+  }
+
+    exerciseTypeLabel(type: string): string {
+    switch (type) {
+      case 'MULTIPLE_CHOICE':
+        return 'Choix multiple';
+      case 'TYPE_ANSWER':
+        return 'Réponse écrite';
+      case 'MATCH_PAIRS':
+        return 'Association';
+      case 'WORD_BANK_SENTENCE':
+        return 'Phrase à construire';
+      default:
+        return 'Exercice';
+    }
+  }
+
+  exerciseTypeChipClass(type: string): string {
+    switch (type) {
+      case 'MULTIPLE_CHOICE':
+        return 'exercise-type-chip type-choice';
+      case 'TYPE_ANSWER':
+        return 'exercise-type-chip type-written';
+      case 'MATCH_PAIRS':
+        return 'exercise-type-chip type-match';
+      case 'WORD_BANK_SENTENCE':
+        return 'exercise-type-chip type-sentence';
+      default:
+        return 'exercise-type-chip';
+    }
+  }
+
+  promptHasTarget(prompt: string): boolean {
+    return prompt.includes(':');
+  }
+
+  promptInstruction(prompt: string): string {
+    const split = this.splitPrompt(prompt);
+    return split.instruction;
+  }
+
+  promptTarget(prompt: string): string {
+    const split = this.splitPrompt(prompt);
+    return split.target;
+  }
+
+  private splitPrompt(prompt: string): { instruction: string; target: string } {
+    const separatorIndex = prompt.indexOf(':');
+
+    if (separatorIndex < 0) {
+      return {
+        instruction: '',
+        target: prompt
+      };
+    }
+
+    return {
+      instruction: prompt.slice(0, separatorIndex).trim(),
+      target: prompt.slice(separatorIndex + 1).trim()
+    };
   }
 
   get feedbackMascotMessage(): string {
