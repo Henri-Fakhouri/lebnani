@@ -513,7 +513,7 @@ export class AdminImportComponent implements OnInit {
     this.lastResult = '';
     this.validationErrors = [];
 
-    const confirmed = window.confirm(
+    const confirmed = globalThis.confirm(
       'Restaurer la version précédente du cours ? Le contenu visible actuel sera archivé.'
     );
 

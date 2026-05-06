@@ -74,11 +74,20 @@ public class ContentImportService {
 
     @Transactional
     public ContentImportResponse importContent(Long courseId, ContentImportRequest request, User user) {
-        return importContent(courseId, request, user, false);
+        return importContentInternal(courseId, request, user, false);
     }
 
     @Transactional
     public ContentImportResponse importContent(
+            Long courseId,
+            ContentImportRequest request,
+            User user,
+            boolean replaceExisting
+    ) {
+        return importContentInternal(courseId, request, user, replaceExisting);
+    }
+
+    private ContentImportResponse importContentInternal(
             Long courseId,
             ContentImportRequest request,
             User user,
@@ -157,28 +166,28 @@ public class ContentImportService {
         archiveUnitsByDisplayOrder(course, displayOrdersToRestore);
 
         for (ContentRestoreUnit restoreUnit : unitsToRestore) {
-            CourseUnit unit = restoreUnit.getUnit();
+            CourseUnit unit = Objects.requireNonNull(
+                    restoreUnit.getUnit(),
+                    "Restore unit should reference a course unit."
+            );
+
             unit.setDisplayOrder(restoreUnit.getOriginalDisplayOrder());
             unit.setPublished(true);
+            courseUnitRepository.save(unit);
         }
 
-        courseUnitRepository.saveAll(
-                unitsToRestore.stream()
-                        .map(ContentRestoreUnit::getUnit)
-                        .toList()
-        );
         courseUnitRepository.flush();
 
         for (ContentRestoreLesson restoreLesson : lessonsToRestore) {
-            Lesson lesson = restoreLesson.getLesson();
+            Lesson lesson = Objects.requireNonNull(
+                    restoreLesson.getLesson(),
+                    "Restore lesson should reference a lesson."
+            );
+
             lesson.setPublished(true);
+            lessonRepository.save(lesson);
         }
 
-        lessonRepository.saveAll(
-                lessonsToRestore.stream()
-                        .map(ContentRestoreLesson::getLesson)
-                        .toList()
-        );
         lessonRepository.flush();
 
         restorePoint.markRestored();
@@ -289,20 +298,30 @@ public class ContentImportService {
         if (!unitIds.isEmpty()) {
             List<Lesson> lessonsToArchive = lessonRepository.findByUnitIds(unitIds);
 
-            for (Lesson lesson : lessonsToArchive) {
+            for (Lesson lessonToArchive : lessonsToArchive) {
+                Lesson lesson = Objects.requireNonNull(
+                        lessonToArchive,
+                        "Lesson to archive should not be null."
+                );
+
                 lesson.setPublished(false);
+                lessonRepository.save(lesson);
             }
 
-            lessonRepository.saveAll(lessonsToArchive);
             lessonRepository.flush();
         }
 
-        for (CourseUnit unit : unitsToArchive) {
+        for (CourseUnit unitToArchive : unitsToArchive) {
+            CourseUnit unit = Objects.requireNonNull(
+                    unitToArchive,
+                    "Course unit to archive should not be null."
+            );
+
             unit.setPublished(false);
             unit.setDisplayOrder(resolveArchivedDisplayOrder(unit));
+            courseUnitRepository.save(unit);
         }
 
-        courseUnitRepository.saveAll(unitsToArchive);
         courseUnitRepository.flush();
     }
 

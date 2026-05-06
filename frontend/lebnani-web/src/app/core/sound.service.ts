@@ -50,7 +50,7 @@ export class SoundService {
 
   playWrong(): void {
     this.playSequence([
-      { frequency: 220, duration: 0.10 },
+      { frequency: 220, duration: 0.1 },
       { frequency: 165, duration: 0.14, delay: 0.08 }
     ]);
   }
@@ -64,7 +64,7 @@ export class SoundService {
   }
 
   private playSequence(tones: SoundTone[]): void {
-    if (!this.isEnabled() || typeof window === 'undefined') {
+    if (!this.isEnabled() || typeof globalThis.window === 'undefined') {
       return;
     }
 
@@ -94,8 +94,8 @@ export class SoundService {
       return this.audioContext;
     }
 
-    const audioWindow = window as WebAudioWindow;
-    const AudioContextClass = window.AudioContext ?? audioWindow.webkitAudioContext;
+    const audioWindow = globalThis.window as WebAudioWindow;
+    const AudioContextClass = globalThis.window.AudioContext ?? audioWindow.webkitAudioContext;
 
     if (!AudioContextClass) {
       return null;

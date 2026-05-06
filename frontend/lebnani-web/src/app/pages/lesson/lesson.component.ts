@@ -1240,7 +1240,7 @@ export class LessonComponent implements OnInit {
   }
 
   optionLetter(index: number): string {
-    return String.fromCharCode(65 + index);
+    return String.fromCodePoint(65 + index);
   }
 
   renderMarkdown(content: string): string {
@@ -1250,7 +1250,7 @@ export class LessonComponent implements OnInit {
       async: false,
       gfm: true,
       breaks: true
-    }) as string;
+    });
   }
 
   backToCourse(): void {

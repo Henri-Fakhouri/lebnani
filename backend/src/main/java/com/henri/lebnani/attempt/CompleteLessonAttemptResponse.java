@@ -9,7 +9,6 @@ public class CompleteLessonAttemptResponse {
     private final long answeredExercises;
     private final long correctAnswers;
     private final long wrongAnswers;
-    private final int scorePercent;
     private final int xpAwarded;
 
     public CompleteLessonAttemptResponse(
@@ -28,9 +27,6 @@ public class CompleteLessonAttemptResponse {
         this.answeredExercises = answeredExercises;
         this.correctAnswers = correctAnswers;
         this.wrongAnswers = answeredExercises - correctAnswers;
-        this.scorePercent = totalExercises == 0
-                ? 0
-                : (int) Math.round((correctAnswers * 100.0) / totalExercises);
         this.xpAwarded = xpAwarded;
     }
 
