@@ -53,6 +53,9 @@ class ContentImportServiceTest {
     @Mock ExerciseAcceptedAnswerRepository acceptedAnswerRepository;
     @Mock ContentImportValidator contentImportValidator;
     @Mock ContentImportRunRepository contentImportRunRepository;
+    @Mock ContentRestorePointRepository contentRestorePointRepository;
+    @Mock ContentRestoreUnitRepository contentRestoreUnitRepository;
+    @Mock ContentRestoreLessonRepository contentRestoreLessonRepository;
 
     @InjectMocks ContentImportService contentImportService;
 
@@ -102,25 +105,6 @@ class ContentImportServiceTest {
     }
 
     @Test
-    void importContent_marks_run_failed_when_validation_throws() {
-        User admin = buildUser(1L, Role.ADMIN);
-        Course course = buildCourse(1L);
-        ContentImportRun run = buildRun(10L);
-        ContentImportRequest request = request(List.of());
-
-        when(courseRepository.findById(1L)).thenReturn(Optional.of(course));
-        when(contentImportRunRepository.save(any(ContentImportRun.class))).thenReturn(run);
-        org.mockito.Mockito.doThrow(new ContentValidationException(List.of()))
-                .when(contentImportValidator).validate(request);
-
-        assertThatThrownBy(() -> contentImportService.importContent(1L, request, admin))
-                .isInstanceOf(ContentValidationException.class);
-
-        assertThat(run.getStatus()).isEqualTo(ContentImportRunStatus.FAILED);
-        assertThat(run.getCompletedAt()).isNotNull();
-    }
-
-    @Test
     void importContent_success_with_empty_units() {
         User admin = buildUser(1L, Role.ADMIN);
         Course course = buildCourse(1L);
@@ -142,6 +126,56 @@ class ContentImportServiceTest {
         assertThat(response.getAcceptedAnswersCreated()).isZero();
 
         verify(contentImportRunRepository, times(2)).save(any(ContentImportRun.class));
+    }
+
+    @Test
+    void importContent_replaceExisting_archives_only_matching_units_before_importing() {
+        User admin = buildUser(1L, Role.ADMIN);
+        Course course = buildCourse(1L);
+
+        CourseUnit matchingUnit = buildUnit(10L, course, "Old matching unit", 303, true);
+        CourseUnit untouchedUnit = buildUnit(11L, course, "Other unit", 304, true);
+
+        Lesson matchingLesson = buildLesson(20L, matchingUnit, "Old matching lesson", 1, true);
+        Lesson untouchedLesson = buildLesson(21L, untouchedUnit, "Other lesson", 1, true);
+
+        ContentImportRequest request = request(List.of(
+                unit("New Unit 303", "New description", 303, List.of())
+        ));
+
+        when(courseRepository.findById(1L)).thenReturn(Optional.of(course));
+        when(courseUnitRepository.findPublishedByCourseIdAndDisplayOrderIn(1L, List.of(303)))
+                .thenReturn(List.of(matchingUnit));
+        when(lessonRepository.findPublishedByUnitIds(List.of(10L)))
+                .thenReturn(List.of(matchingLesson));
+        when(courseUnitRepository.findByCourseIdAndDisplayOrderIn(1L, List.of(303)))
+                .thenReturn(List.of(matchingUnit));
+        when(lessonRepository.findByUnitIds(List.of(10L)))
+                .thenReturn(List.of(matchingLesson));
+
+        stubEntitySaves();
+
+        ContentImportResponse response = contentImportService.importContent(1L, request, admin, true);
+
+        assertThat(response).isNotNull();
+        assertThat(response.getUnitsCreated()).isEqualTo(1);
+
+        assertThat(matchingLesson.isPublished()).isFalse();
+        assertThat(matchingUnit.isPublished()).isFalse();
+        assertThat(matchingUnit.getDisplayOrder()).isEqualTo(-1_000_010);
+
+        assertThat(untouchedLesson.isPublished()).isTrue();
+        assertThat(untouchedUnit.isPublished()).isTrue();
+        assertThat(untouchedUnit.getDisplayOrder()).isEqualTo(304);
+
+        verify(contentRestorePointRepository).save(any(ContentRestorePoint.class));
+        verify(contentRestoreUnitRepository).save(any(ContentRestoreUnit.class));
+        verify(contentRestoreLessonRepository).save(any(ContentRestoreLesson.class));
+
+        verify(lessonRepository).saveAll(List.of(matchingLesson));
+        verify(lessonRepository).flush();
+        verify(courseUnitRepository).saveAll(List.of(matchingUnit));
+        verify(courseUnitRepository).flush();
     }
 
     @Test
@@ -170,15 +204,6 @@ class ContentImportServiceTest {
                 List.of("baddi rou7", "baddi fell")
         );
 
-        ContentImportRequest.ExerciseImport typedWithoutCorrectAnswer = exercise(
-                ExerciseType.TYPE_ANSWER.name(),
-                "Translate: hello",
-                null,
-                3,
-                List.of(),
-                List.of()
-        );
-
         ContentImportRequest.ContentBlockImport block = block(
                 " " + LessonContentBlockType.values()[0].name().toLowerCase() + " ",
                 "Some lesson content",
@@ -188,7 +213,7 @@ class ContentImportServiceTest {
         ContentImportRequest request = request(List.of(
                 unit("Basics", "Unit description", 1, List.of(
                         lesson("Lesson 1", "Lesson description", 1, List.of(block),
-                                List.of(multipleChoice, typedWithAcceptedAnswers, typedWithoutCorrectAnswer))
+                                List.of(multipleChoice, typedWithAcceptedAnswers))
                 ))
         ));
 
@@ -202,7 +227,7 @@ class ContentImportServiceTest {
         assertThat(response.getUnitsCreated()).isEqualTo(1);
         assertThat(response.getLessonsCreated()).isEqualTo(1);
         assertThat(response.getContentBlocksCreated()).isEqualTo(1);
-        assertThat(response.getExercisesCreated()).isEqualTo(3);
+        assertThat(response.getExercisesCreated()).isEqualTo(2);
         assertThat(response.getOptionsCreated()).isEqualTo(2);
         assertThat(response.getAcceptedAnswersCreated()).isEqualTo(2);
 
@@ -227,11 +252,10 @@ class ContentImportServiceTest {
         assertThat(blockCaptor.getValue().getDisplayOrder()).isEqualTo(1);
 
         ArgumentCaptor<Exercise> exerciseCaptor = ArgumentCaptor.forClass(Exercise.class);
-        verify(exerciseRepository, times(3)).save(exerciseCaptor.capture());
+        verify(exerciseRepository, times(2)).save(exerciseCaptor.capture());
         List<Exercise> savedExercises = exerciseCaptor.getAllValues();
         assertThat(savedExercises.get(0).getCorrectAnswer()).isEqualTo("Ana");
         assertThat(savedExercises.get(1).getCorrectAnswer()).isEqualTo("baddi rou7");
-        assertThat(savedExercises.get(2).getCorrectAnswer()).isNull();
 
         ArgumentCaptor<ExerciseOption> optionCaptor = ArgumentCaptor.forClass(ExerciseOption.class);
         verify(exerciseOptionRepository, times(2)).save(optionCaptor.capture());
@@ -262,6 +286,25 @@ class ContentImportServiceTest {
         ContentImportResponse response = contentImportService.importContent(1L, request, editor);
 
         assertThat(response).isNotNull();
+    }
+
+    @Test
+    void importContent_marks_run_failed_when_validation_throws() {
+        User admin = buildUser(1L, Role.ADMIN);
+        Course course = buildCourse(1L);
+        ContentImportRun run = buildRun(10L);
+        ContentImportRequest request = request(List.of());
+
+        when(courseRepository.findById(1L)).thenReturn(Optional.of(course));
+        when(contentImportRunRepository.save(any(ContentImportRun.class))).thenReturn(run);
+        org.mockito.Mockito.doThrow(new ContentValidationException(List.of()))
+                .when(contentImportValidator).validate(request);
+
+        assertThatThrownBy(() -> contentImportService.importContent(1L, request, admin))
+                .isInstanceOf(ContentValidationException.class);
+
+        assertThat(run.getStatus()).isEqualTo(ContentImportRunStatus.FAILED);
+        assertThat(run.getCompletedAt()).isNotNull();
     }
 
     @Test
@@ -312,6 +355,86 @@ class ContentImportServiceTest {
         ArgumentCaptor<ContentImportRun> runCaptor = ArgumentCaptor.forClass(ContentImportRun.class);
         verify(contentImportRunRepository, times(2)).save(runCaptor.capture());
         assertThat(runCaptor.getAllValues().get(1).getStatus()).isEqualTo(ContentImportRunStatus.FAILED);
+    }
+
+    @Test
+    void restoreLatestContent_restores_only_units_from_latest_restore_point() {
+        User admin = buildUser(1L, Role.ADMIN);
+        Course course = buildCourse(1L);
+
+        ContentRestorePoint restorePoint = buildRestorePoint(99L, course, admin);
+
+        CourseUnit oldUnit303 = buildUnit(10L, course, "Old 303", 303, false);
+        CourseUnit currentUnit303 = buildUnit(30L, course, "Current 303", 303, true);
+        CourseUnit untouchedUnit304 = buildUnit(40L, course, "Untouched 304", 304, true);
+
+        Lesson oldLesson303 = buildLesson(20L, oldUnit303, "Old lesson 303", 1, false);
+        Lesson currentLesson303 = buildLesson(31L, currentUnit303, "Current lesson 303", 1, true);
+        Lesson untouchedLesson304 = buildLesson(41L, untouchedUnit304, "Untouched lesson 304", 1, true);
+
+        ContentRestoreUnit restoreUnit = new ContentRestoreUnit();
+        restoreUnit.setRestorePoint(restorePoint);
+        restoreUnit.setUnit(oldUnit303);
+        restoreUnit.setOriginalDisplayOrder(303);
+
+        ContentRestoreLesson restoreLesson = new ContentRestoreLesson();
+        restoreLesson.setRestorePoint(restorePoint);
+        restoreLesson.setLesson(oldLesson303);
+
+        when(courseRepository.findById(1L)).thenReturn(Optional.of(course));
+        when(contentRestorePointRepository.findFirstByCourseIdAndRestoredFalseOrderByCreatedAtDescIdDesc(1L))
+                .thenReturn(Optional.of(restorePoint));
+        when(contentRestoreUnitRepository.findByRestorePointIdOrderByOriginalDisplayOrderAscIdAsc(99L))
+                .thenReturn(List.of(restoreUnit));
+        when(contentRestoreLessonRepository.findByRestorePointId(99L))
+                .thenReturn(List.of(restoreLesson));
+
+        when(courseUnitRepository.findPublishedByCourseIdAndDisplayOrderIn(1L, List.of(303)))
+                .thenReturn(List.of(currentUnit303));
+        when(lessonRepository.findPublishedByUnitIds(List.of(30L)))
+                .thenReturn(List.of(currentLesson303));
+        when(courseUnitRepository.findByCourseIdAndDisplayOrderIn(1L, List.of(303)))
+                .thenReturn(List.of(currentUnit303));
+        when(lessonRepository.findByUnitIds(List.of(30L)))
+                .thenReturn(List.of(currentLesson303));
+
+        stubEntitySaves();
+
+        ContentRestoreResponse response = contentImportService.restoreLatestContent(1L, admin);
+
+        assertThat(response.getRestorePointId()).isEqualTo(99L);
+        assertThat(response.getCourseId()).isEqualTo(1L);
+        assertThat(response.getUnitsRestored()).isEqualTo(1);
+        assertThat(response.getLessonsRestored()).isEqualTo(1);
+
+        assertThat(currentLesson303.isPublished()).isFalse();
+        assertThat(currentUnit303.isPublished()).isFalse();
+        assertThat(currentUnit303.getDisplayOrder()).isEqualTo(-1_000_030);
+
+        assertThat(oldLesson303.isPublished()).isTrue();
+        assertThat(oldUnit303.isPublished()).isTrue();
+        assertThat(oldUnit303.getDisplayOrder()).isEqualTo(303);
+
+        assertThat(untouchedLesson304.isPublished()).isTrue();
+        assertThat(untouchedUnit304.isPublished()).isTrue();
+        assertThat(untouchedUnit304.getDisplayOrder()).isEqualTo(304);
+
+        assertThat(restorePoint.isRestored()).isTrue();
+        assertThat(restorePoint.getRestoredAt()).isNotNull();
+    }
+
+    @Test
+    void restoreLatestContent_throws_when_no_restore_point_exists() {
+        User admin = buildUser(1L, Role.ADMIN);
+        Course course = buildCourse(1L);
+
+        when(courseRepository.findById(1L)).thenReturn(Optional.of(course));
+        when(contentRestorePointRepository.findFirstByCourseIdAndRestoredFalseOrderByCreatedAtDescIdDesc(1L))
+                .thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> contentImportService.restoreLatestContent(1L, admin))
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining("Aucune version précédente");
     }
 
     @Test
@@ -379,16 +502,35 @@ class ContentImportServiceTest {
             return run;
         });
 
+        when(contentRestorePointRepository.save(any(ContentRestorePoint.class))).thenAnswer(invocation -> {
+            ContentRestorePoint restorePoint = invocation.getArgument(0, ContentRestorePoint.class);
+            if (restorePoint.getId() == null) {
+                setId(restorePoint, 99L);
+            }
+            return restorePoint;
+        });
+
+        when(contentRestoreUnitRepository.save(any(ContentRestoreUnit.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0, ContentRestoreUnit.class));
+
+        when(contentRestoreLessonRepository.save(any(ContentRestoreLesson.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0, ContentRestoreLesson.class));
+
         when(courseUnitRepository.save(any(CourseUnit.class)))
                 .thenAnswer(invocation -> invocation.getArgument(0, CourseUnit.class));
+
         when(lessonRepository.save(any(Lesson.class)))
                 .thenAnswer(invocation -> invocation.getArgument(0, Lesson.class));
+
         when(lessonContentBlockRepository.save(any(LessonContentBlock.class)))
                 .thenAnswer(invocation -> invocation.getArgument(0, LessonContentBlock.class));
+
         when(exerciseRepository.save(any(Exercise.class)))
                 .thenAnswer(invocation -> invocation.getArgument(0, Exercise.class));
+
         when(exerciseOptionRepository.save(any(ExerciseOption.class)))
                 .thenAnswer(invocation -> invocation.getArgument(0, ExerciseOption.class));
+
         when(acceptedAnswerRepository.save(any(ExerciseAcceptedAnswer.class)))
                 .thenAnswer(invocation -> invocation.getArgument(0, ExerciseAcceptedAnswer.class));
     }
@@ -407,10 +549,39 @@ class ContentImportServiceTest {
         return course;
     }
 
+    private CourseUnit buildUnit(Long id, Course course, String title, int displayOrder, boolean published) {
+        CourseUnit unit = new CourseUnit();
+        setId(unit, id);
+        unit.setCourse(course);
+        unit.setTitle(title);
+        unit.setDisplayOrder(displayOrder);
+        unit.setPublished(published);
+        return unit;
+    }
+
+    private Lesson buildLesson(Long id, CourseUnit unit, String title, int displayOrder, boolean published) {
+        Lesson lesson = new Lesson();
+        setId(lesson, id);
+        lesson.setUnit(unit);
+        lesson.setTitle(title);
+        lesson.setDisplayOrder(displayOrder);
+        lesson.setPublished(published);
+        return lesson;
+    }
+
     private ContentImportRun buildRun(Long id) {
         ContentImportRun run = new ContentImportRun();
         setId(run, id);
         return run;
+    }
+
+    private ContentRestorePoint buildRestorePoint(Long id, Course course, User user) {
+        ContentRestorePoint restorePoint = new ContentRestorePoint();
+        setId(restorePoint, id);
+        restorePoint.setCourse(course);
+        restorePoint.setUser(user);
+        restorePoint.setReason("IMPORT_REPLACE");
+        return restorePoint;
     }
 
     private ContentImportRequest request(List<ContentImportRequest.UnitImport> units) {

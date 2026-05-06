@@ -242,7 +242,7 @@ describe('ApiService', () => {
     });
   });
 
-  it('should call admin import endpoints', () => {
+    it('should call admin import endpoints', () => {
     const content = {
       units: []
     };
@@ -251,13 +251,26 @@ describe('ApiService', () => {
       expect(response.importRunId).toBe(10);
     });
 
-    const importRequest = httpMock.expectOne('/api/admin/courses/1/content/import');
+    const importRequest = httpMock.expectOne('/api/admin/courses/1/content/import?replaceExisting=false');
 
     expect(importRequest.request.method).toBe('POST');
     expect(importRequest.request.body).toEqual(content);
 
     importRequest.flush({
       importRunId: 10
+    });
+
+    service.importContent(1, content, true).subscribe(response => {
+      expect(response.importRunId).toBe(11);
+    });
+
+    const replaceImportRequest = httpMock.expectOne('/api/admin/courses/1/content/import?replaceExisting=true');
+
+    expect(replaceImportRequest.request.method).toBe('POST');
+    expect(replaceImportRequest.request.body).toEqual(content);
+
+    replaceImportRequest.flush({
+      importRunId: 11
     });
 
     service.getContentImportRuns(1).subscribe(response => {

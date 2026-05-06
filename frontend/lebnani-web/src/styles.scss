@@ -209,63 +209,18 @@ a {
 .flag-stripe {
   position: relative;
   height: 8px;
-  border-radius: 999px;
   overflow: hidden;
+  border-radius: 999px;
   background:
     linear-gradient(
       90deg,
-      var(--lb-red) 0 28%,
-      var(--white) 28% 72%,
-      var(--lb-red) 72% 100%
+      var(--lb-red) 0 30%,
+      var(--white) 30% 70%,
+      var(--lb-red) 70% 100%
     );
 }
 
 .lb-lebanese-stripe::after,
-.flag-stripe::after {
-  content: "";
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  width: 16px;
-  height: 11px;
-  transform: translate(-50%, -50%);
-  background: var(--cedar-green);
-  clip-path: polygon(
-    50% 0%,
-    76% 22%,
-    62% 22%,
-    90% 48%,
-    70% 48%,
-    100% 74%,
-    58% 74%,
-    58% 100%,
-    42% 100%,
-    42% 74%,
-    0% 74%,
-    30% 48%,
-    10% 48%,
-    38% 22%,
-    24% 22%
-  );
-  z-index: 2;
-}
-
-.flag-stripe {
-  position: relative;
-  height: 10px;
-  margin-bottom: 18px;
-  overflow: hidden;
-  border-radius: 999px;
-  background:
-    linear-gradient(
-      90deg,
-      var(--lb-red) 0 28%,
-      var(--white) 28% 72%,
-      var(--lb-red) 72% 100%
-    );
-  box-shadow: 0 10px 22px rgba(31, 41, 51, 0.08);
-}
-
 .flag-stripe::after {
   content: "";
   position: absolute;
@@ -292,4 +247,11 @@ a {
     36% 20%,
     22% 20%
   );
+  z-index: 2;
+}
+
+.flag-stripe {
+  height: 10px;
+  margin-bottom: 18px;
+  box-shadow: 0 10px 22px rgba(31, 41, 51, 0.08);
 }

@@ -18,11 +18,7 @@ import { MascotComponent } from '../../shared/mascot/mascot.component';
             ← Parcours
           </button>
 
-          <div class="flag-stripe">
-            <span></span>
-            <span></span>
-            <span></span>
-          </div>
+          <div class="flag-stripe"></div>
         </div>
 
         <section class="admin-hero">
@@ -49,9 +45,15 @@ import { MascotComponent } from '../../shared/mascot/mascot.component';
               <h2>Source du contenu</h2>
             </div>
 
-            <button type="button" class="secondary-button" (click)="useExampleJson()">
-              Exemple JSON
-            </button>
+            <div class="header-actions">
+              <button type="button" class="secondary-button danger-lite" (click)="restoreLatest()">
+                Restaurer la version précédente
+              </button>
+
+              <button type="button" class="secondary-button" (click)="useExampleJson()">
+                Exemple JSON
+              </button>
+            </div>
           </div>
 
           <label class="course-field">
@@ -63,6 +65,22 @@ import { MascotComponent } from '../../shared/mascot/mascot.component';
               name="courseId"
             />
           </label>
+
+          <label class="replace-field">
+            <input
+              type="checkbox"
+              [(ngModel)]="replaceExisting"
+              name="replaceExisting"
+            />
+
+            <span>Remplacer uniquement les unités existantes avec le même displayOrder</span>
+          </label>
+
+          @if (replaceExisting) {
+            <div class="replace-warning">
+              Une version de restauration sera créée uniquement pour les unités remplacées.
+            </div>
+          }
 
           <label class="json-field">
             <span>JSON à importer</span>
@@ -85,13 +103,26 @@ import { MascotComponent } from '../../shared/mascot/mascot.component';
               [disabled]="loading || !rawJson.trim() || courseId < 1"
               (click)="importJson()"
             >
-              {{ loading ? 'Import...' : 'Importer le contenu' }}
+              {{ loading ? 'Traitement...' : 'Importer le contenu' }}
             </button>
           </div>
 
           @if (errorMessage) {
             <div class="message-box error-box">
               {{ errorMessage }}
+            </div>
+          }
+
+          @if (validationErrors.length > 0) {
+            <div class="validation-box">
+              <strong>Erreurs de validation</strong>
+
+              @for (err of validationErrors; track err.path + err.message) {
+                <p>
+                  <span>{{ err.path }}</span>
+                  {{ err.message }}
+                </p>
+              }
             </div>
           }
 
@@ -143,6 +174,11 @@ import { MascotComponent } from '../../shared/mascot/mascot.component';
       color: var(--cedar-green-dark);
       background: var(--cedar-green-soft);
       font-weight: 900;
+    }
+
+    .danger-lite {
+      color: var(--lb-red-dark);
+      background: var(--lb-red-soft);
     }
 
     .admin-hero,
@@ -233,6 +269,13 @@ import { MascotComponent } from '../../shared/mascot/mascot.component';
       align-items: start;
     }
 
+    .header-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      justify-content: flex-end;
+    }
+
     label {
       display: grid;
       gap: 8px;
@@ -279,6 +322,40 @@ import { MascotComponent } from '../../shared/mascot/mascot.component';
       box-shadow: 0 0 0 4px rgba(31, 95, 67, 0.10);
     }
 
+    .replace-field {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      padding: 12px 14px;
+      border: 1px solid var(--border-soft);
+      border-radius: 18px;
+      background: #fffdf8;
+    }
+
+    .replace-field input {
+      width: auto;
+      max-width: none;
+      padding: 0;
+      accent-color: var(--cedar-green);
+    }
+
+    .replace-field span {
+      color: var(--text-main);
+      font-size: 14px;
+      font-weight: 850;
+      text-transform: none;
+      letter-spacing: 0;
+    }
+
+    .replace-warning {
+      padding: 12px 14px;
+      border: 1px solid rgba(214, 40, 40, 0.22);
+      border-radius: 18px;
+      color: var(--lb-red-dark);
+      background: var(--lb-red-soft);
+      font-weight: 850;
+    }
+
     .actions {
       display: flex;
       justify-content: flex-end;
@@ -300,16 +377,35 @@ import { MascotComponent } from '../../shared/mascot/mascot.component';
       opacity: 0.55;
     }
 
-    .message-box {
+    .message-box,
+    .validation-box {
       padding: 14px 16px;
       border-radius: 18px;
       font-weight: 800;
     }
 
-    .error-box {
+    .error-box,
+    .validation-box {
       color: var(--lb-red-dark);
       background: var(--lb-red-soft);
       border: 1px solid rgba(214, 40, 40, 0.25);
+    }
+
+    .validation-box {
+      display: grid;
+      gap: 10px;
+    }
+
+    .validation-box p {
+      margin: 0;
+      color: #5f3333;
+      font-weight: 750;
+    }
+
+    .validation-box span {
+      display: block;
+      color: var(--lb-red-dark);
+      font-weight: 950;
     }
 
     .success-box {
@@ -345,22 +441,28 @@ import { MascotComponent } from '../../shared/mascot/mascot.component';
       .import-header {
         display: grid;
       }
+
+      .header-actions {
+        justify-content: flex-start;
+      }
     }
   `]
 })
 export class AdminImportComponent implements OnInit {
   courseId = 1;
   rawJson = '';
+  replaceExisting = false;
   loading = false;
   errorMessage = '';
   successMessage = '';
   lastResult = '';
+  validationErrors: { path: string; message: string }[] = [];
 
   constructor(
     private readonly api: ApiService,
     private readonly auth: AuthService,
     private readonly router: Router
-  ) {}
+  ) { }
 
   ngOnInit(): void {
     if (!this.auth.isLoggedIn()) {
@@ -377,6 +479,7 @@ export class AdminImportComponent implements OnInit {
     this.errorMessage = '';
     this.successMessage = '';
     this.lastResult = '';
+    this.validationErrors = [];
 
     let parsedContent: unknown;
 
@@ -389,21 +492,53 @@ export class AdminImportComponent implements OnInit {
 
     this.loading = true;
 
-    this.api.importContent(this.courseId, parsedContent).subscribe({
+    this.api.importContent(this.courseId, parsedContent, this.replaceExisting).subscribe({
       next: result => {
         this.loading = false;
-        this.successMessage = 'Import terminé.';
+        this.successMessage = this.replaceExisting
+          ? 'Import terminé. Une version précédente peut maintenant être restaurée.'
+          : 'Import terminé.';
         this.lastResult = JSON.stringify(result, null, 2);
       },
-      error: () => {
+      error: err => {
         this.loading = false;
-        this.errorMessage = 'Import refusé par le backend. Vérifie le JSON ou les règles de validation.';
+        this.handleBackendError(err);
+      }
+    });
+  }
+
+  restoreLatest(): void {
+    this.errorMessage = '';
+    this.successMessage = '';
+    this.lastResult = '';
+    this.validationErrors = [];
+
+    const confirmed = window.confirm(
+      'Restaurer la version précédente du cours ? Le contenu visible actuel sera archivé.'
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
+    this.loading = true;
+
+    this.api.restoreLatestContentImport(this.courseId).subscribe({
+      next: result => {
+        this.loading = false;
+        this.successMessage = 'Version précédente restaurée.';
+        this.lastResult = JSON.stringify(result, null, 2);
+      },
+      error: err => {
+        this.loading = false;
+        this.handleBackendError(err);
       }
     });
   }
 
   formatJson(): void {
     this.errorMessage = '';
+    this.validationErrors = [];
 
     try {
       const parsedContent = JSON.parse(this.rawJson);
@@ -418,13 +553,13 @@ export class AdminImportComponent implements OnInit {
       units: [
         {
           title: 'Salutations',
-          displayOrder: 1,
-          published: true,
+          description: 'Première unité de test.',
+          displayOrder: 100,
           lessons: [
             {
               title: 'Dire bonjour',
+              description: 'Apprendre à dire bonjour simplement.',
               displayOrder: 1,
-              published: true,
               contentBlocks: [
                 {
                   type: 'HEADING',
@@ -448,7 +583,6 @@ export class AdminImportComponent implements OnInit {
                   promptFr: 'Que veut dire "mar7aba" ?',
                   correctAnswer: 'bonjour',
                   displayOrder: 1,
-                  published: true,
                   options: [
                     {
                       text: 'bonjour',
@@ -472,5 +606,20 @@ export class AdminImportComponent implements OnInit {
 
   backToCourse(): void {
     this.router.navigateByUrl('/course');
+  }
+
+  private handleBackendError(err: any): void {
+    if (err?.error?.code === 'CONTENT_VALIDATION_ERROR') {
+      this.validationErrors = err.error.errors ?? [];
+      return;
+    }
+
+    const backendMessage =
+      err?.error?.message ||
+      err?.error?.error ||
+      err?.message ||
+      'Action refusée par le backend.';
+
+    this.errorMessage = backendMessage;
   }
 }

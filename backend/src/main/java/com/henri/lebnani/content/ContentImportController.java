@@ -21,9 +21,18 @@ public class ContentImportController {
     public ContentImportResponse importContent(
             @PathVariable Long courseId,
             @Valid @RequestBody ContentImportRequest request,
+            @AuthenticationPrincipal User user,
+            @RequestParam(defaultValue = "false") boolean replaceExisting
+    ) {
+        return contentImportService.importContent(courseId, request, user, replaceExisting);
+    }
+
+    @PostMapping("/courses/{courseId}/content/imports/restore-latest")
+    public ContentRestoreResponse restoreLatestContent(
+            @PathVariable Long courseId,
             @AuthenticationPrincipal User user
     ) {
-        return contentImportService.importContent(courseId, request, user);
+        return contentImportService.restoreLatestContent(courseId, user);
     }
 
     @GetMapping("/courses/{courseId}/content/imports")

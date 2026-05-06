@@ -21,7 +21,7 @@ class ContentImportControllerTest {
     @InjectMocks ContentImportController controller;
 
     @Test
-    void importContent_delegates_to_service() {
+    void importContent_delegates_to_service_without_replace_mode() {
         ContentImportRequest request = mock(ContentImportRequest.class);
         User user = mock(User.class);
         ContentImportResponse response = new ContentImportResponse(
@@ -30,12 +30,30 @@ class ContentImportControllerTest {
                 new ContentImportResponse.ImportCounts(0, 0, 0, 0, 0, 0)
         );
 
-        when(contentImportService.importContent(2L, request, user)).thenReturn(response);
+        when(contentImportService.importContent(2L, request, user, false)).thenReturn(response);
 
-        ContentImportResponse result = controller.importContent(2L, request, user);
+        ContentImportResponse result = controller.importContent(2L, request, user, false);
 
         assertThat(result).isEqualTo(response);
-        verify(contentImportService).importContent(2L, request, user);
+        verify(contentImportService).importContent(2L, request, user, false);
+    }
+
+    @Test
+    void importContent_delegates_to_service_with_replace_mode() {
+        ContentImportRequest request = mock(ContentImportRequest.class);
+        User user = mock(User.class);
+        ContentImportResponse response = new ContentImportResponse(
+                1L,
+                2L,
+                new ContentImportResponse.ImportCounts(0, 0, 0, 0, 0, 0)
+        );
+
+        when(contentImportService.importContent(2L, request, user, true)).thenReturn(response);
+
+        ContentImportResponse result = controller.importContent(2L, request, user, true);
+
+        assertThat(result).isEqualTo(response);
+        verify(contentImportService).importContent(2L, request, user, true);
     }
 
     @Test

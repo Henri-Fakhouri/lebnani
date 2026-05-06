@@ -143,10 +143,17 @@ export class ApiService {
     );
   }
 
-  importContent(courseId: number, content: unknown): Observable<any> {
+  importContent(courseId: number, content: unknown, replaceExisting = false): Observable<any> {
     return this.http.post<any>(
-      `/api/admin/courses/${courseId}/content/import`,
+      `/api/admin/courses/${courseId}/content/import?replaceExisting=${replaceExisting}`,
       content
+    );
+  }
+
+  restoreLatestContentImport(courseId: number): Observable<any> {
+    return this.http.post<any>(
+      `/api/admin/courses/${courseId}/content/imports/restore-latest`,
+      {}
     );
   }
 
