@@ -21,7 +21,7 @@ export class SoundService {
 
   isEnabled(): boolean {
     try {
-      return localStorage.getItem(this.storageKey) !== 'false';
+      return globalThis.localStorage.getItem(this.storageKey) !== 'false';
     } catch {
       return true;
     }
@@ -29,7 +29,7 @@ export class SoundService {
 
   setEnabled(enabled: boolean): void {
     try {
-      localStorage.setItem(this.storageKey, String(enabled));
+      globalThis.localStorage.setItem(this.storageKey, String(enabled));
     } catch {
       // Ignore storage errors.
     }
@@ -64,7 +64,7 @@ export class SoundService {
   }
 
   private playSequence(tones: SoundTone[]): void {
-    if (!this.isEnabled() || typeof globalThis.window === 'undefined') {
+    if (!this.isEnabled() || globalThis.window === undefined) {
       return;
     }
 
