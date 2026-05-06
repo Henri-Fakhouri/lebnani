@@ -10,7 +10,9 @@ import com.henri.lebnani.user.User;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.Comparator;
 import java.util.Objects;
+import java.util.stream.Collectors;
 
 @Service
 public class LessonAttemptService {
@@ -123,6 +125,10 @@ public class LessonAttemptService {
             return validateTypedAnswer(exercise, request);
         }
 
+        if (exercise.getType() == ExerciseType.MATCH_PAIRS) {
+            return validateMatchPairsAnswer(exercise, request);
+        }
+
         throw new BusinessException("UNSUPPORTED_EXERCISE_TYPE", "Unsupported exercise type.");
     }
 
@@ -173,6 +179,60 @@ public class LessonAttemptService {
                 null,
                 correct,
                 expectedAnswer);
+    }
+
+    private AnswerValidationResult validateMatchPairsAnswer(Exercise exercise, AnswerSubmissionRequest request) {
+        if (request.getAnswer() == null || request.getAnswer().isBlank()) {
+            throw new BusinessException("ANSWER_REQUIRED", "answer is required for matching pair exercises.");
+        }
+
+        String submittedAnswer = request.getAnswer();
+        String expectedAnswer = resolveMatchPairsExpectedAnswer(exercise);
+
+        String normalizedAnswer = normalizePairSignature(submittedAnswer);
+        String normalizedExpectedAnswer = normalizePairSignature(expectedAnswer);
+
+        return new AnswerValidationResult(
+                submittedAnswer,
+                normalizedAnswer,
+                null,
+                normalizedAnswer.equals(normalizedExpectedAnswer),
+                expectedAnswer);
+    }
+
+    private String resolveMatchPairsExpectedAnswer(Exercise exercise) {
+        if (exercise.getCorrectAnswer() != null && !exercise.getCorrectAnswer().isBlank()) {
+            return exercise.getCorrectAnswer();
+        }
+
+        return exercise.getOptions()
+                .stream()
+                .sorted(Comparator.comparingInt(ExerciseOption::getDisplayOrder))
+                .map(ExerciseOption::getTextValue)
+                .collect(Collectors.joining("|"));
+    }
+
+    private String normalizePairSignature(String value) {
+        return value.lines()
+                .flatMap(line -> java.util.Arrays.stream(line.split("\\|")))
+                .map(String::trim)
+                .filter(pair -> !pair.isBlank())
+                .map(this::normalizePair)
+                .sorted()
+                .collect(Collectors.joining("|"));
+    }
+
+    private String normalizePair(String rawPair) {
+        String[] parts = rawPair.split("=>", 2);
+
+        if (parts.length != 2) {
+            return answerNormalizer.normalize(rawPair);
+        }
+
+        String left = answerNormalizer.normalize(parts[0]);
+        String right = answerNormalizer.normalize(parts[1]);
+
+        return left + "=>" + right;
     }
 
     @Transactional

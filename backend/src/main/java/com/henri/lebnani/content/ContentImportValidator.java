@@ -106,6 +106,8 @@ public class ContentImportValidator {
                 validateMultipleChoice(exercise, exercisePath, errors);
             } else if ("TYPE_ANSWER".equals(type)) {
                 validateTypedAnswer(exercise, exercisePath, errors);
+            } else if ("MATCH_PAIRS".equals(type)) {
+                validateMatchPairs(exercise, exercisePath, errors);
             } else {
                 errors.add(new ContentValidationError(
                         exercisePath + ".type",
@@ -140,15 +142,7 @@ public class ContentImportValidator {
             ));
         }
 
-        Set<Integer> seenOrders = new HashSet<>();
-        for (ContentImportRequest.OptionImport option : exercise.getOptions()) {
-            if (option.getDisplayOrder() != null && !seenOrders.add(option.getDisplayOrder())) {
-                errors.add(new ContentValidationError(
-                        exercisePath + OPTIONS_PATH,
-                        "Duplicate option displayOrder: " + option.getDisplayOrder()
-                ));
-            }
-        }
+        validateDuplicateOptionOrders(exercise, exercisePath, errors);
     }
 
     private void validateTypedAnswer(
@@ -164,6 +158,48 @@ public class ContentImportValidator {
                     exercisePath,
                     "TYPE_ANSWER exercises must have correctAnswer or acceptedAnswers."
             ));
+        }
+    }
+
+    private void validateMatchPairs(
+            ContentImportRequest.ExerciseImport exercise,
+            String exercisePath,
+            List<ContentValidationError> errors
+    ) {
+        if (exercise.getOptions().isEmpty()) {
+            errors.add(new ContentValidationError(
+                    exercisePath + OPTIONS_PATH,
+                    "MATCH_PAIRS exercises must have pair options."
+            ));
+            return;
+        }
+
+        validateDuplicateOptionOrders(exercise, exercisePath, errors);
+
+        for (ContentImportRequest.OptionImport option : exercise.getOptions()) {
+            if (option.getText() == null || !option.getText().contains("=>")) {
+                errors.add(new ContentValidationError(
+                        exercisePath + OPTIONS_PATH,
+                        "MATCH_PAIRS option text must use the format: left => right"
+                ));
+            }
+        }
+    }
+
+    private void validateDuplicateOptionOrders(
+            ContentImportRequest.ExerciseImport exercise,
+            String exercisePath,
+            List<ContentValidationError> errors
+    ) {
+        Set<Integer> seenOrders = new HashSet<>();
+
+        for (ContentImportRequest.OptionImport option : exercise.getOptions()) {
+            if (option.getDisplayOrder() != null && !seenOrders.add(option.getDisplayOrder())) {
+                errors.add(new ContentValidationError(
+                        exercisePath + OPTIONS_PATH,
+                        "Duplicate option displayOrder: " + option.getDisplayOrder()
+                ));
+            }
         }
     }
 }

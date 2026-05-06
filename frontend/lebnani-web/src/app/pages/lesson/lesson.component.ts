@@ -6,11 +6,12 @@ import { ApiService, LessonContentBlockResponse } from '../../core/api.service';
 import { AuthService } from '../../core/auth.service';
 import { MascotComponent, MascotMood } from '../../shared/mascot/mascot.component';
 import { SoundService } from '../../core/sound.service';
+import { MatchPairsExerciseComponent } from './match-pairs-exercise.component';
 
 @Component({
   selector: 'app-lesson',
   standalone: true,
-  imports: [FormsModule, MascotComponent],
+  imports: [FormsModule, MascotComponent, MatchPairsExerciseComponent],
   template: `
     <main class="lesson-page">
       <div class="lesson-shell">
@@ -187,6 +188,14 @@ import { SoundService } from '../../core/sound.service';
               </div>
             }
 
+                      @if (exercise.type === 'MATCH_PAIRS') {
+            <app-match-pairs-exercise
+              [exercise]="exercise"
+              [disabled]="answering || !!feedback"
+              (completed)="answerMatchPairs($event)"
+            />
+          }
+            
             @if (feedback) {
               <div class="feedback-panel" [class.correct]="lastCorrect" [class.wrong]="!lastCorrect">
                 <div class="feedback-head">
@@ -762,7 +771,7 @@ export class LessonComponent implements OnInit {
     return ((this.index + 1) * 100) / this.exercises.length;
   }
 
-   get currentMascotMood(): MascotMood {
+  get currentMascotMood(): MascotMood {
     if (!this.feedback) {
       if (this.exercise?.type === 'TYPE_ANSWER') {
         return 'thinking';
@@ -782,7 +791,7 @@ export class LessonComponent implements OnInit {
     return 'happy';
   }
 
-    get currentMascotMessage(): string {
+  get currentMascotMessage(): string {
     if (!this.feedback) {
       if (this.exercise?.type === 'TYPE_ANSWER') {
         return 'Écris ce que tu entends ou ce que tu comprends.';
@@ -802,7 +811,7 @@ export class LessonComponent implements OnInit {
     return 'Bien joué. Continue comme ça.';
   }
 
-    get feedbackMascotMood(): MascotMood {
+  get feedbackMascotMood(): MascotMood {
     if (!this.lastCorrect) {
       return 'sad';
     }
@@ -899,7 +908,7 @@ export class LessonComponent implements OnInit {
     });
   }
 
-   next(): void {
+  next(): void {
     this.index++;
 
     if (this.index >= this.exercises.length) {
@@ -963,6 +972,25 @@ export class LessonComponent implements OnInit {
       error: () => {
         this.answering = false;
         this.errorMessage = 'Impossible de valider la réponse.';
+      }
+    });
+  }
+
+    answerMatchPairs(answer: string): void {
+    if (this.answering || this.feedback || !answer.trim()) {
+      return;
+    }
+
+    this.answering = true;
+
+    this.api.submitAnswer(this.attemptId, {
+      exerciseId: this.exercise.id,
+      answer
+    }).subscribe({
+      next: res => this.handleAnswerResult(res.correct, res.expectedAnswer),
+      error: () => {
+        this.answering = false;
+        this.errorMessage = 'Impossible de valider les paires.';
       }
     });
   }
