@@ -1,6 +1,6 @@
 import { Component, OnInit } from '@angular/core';
 import { Router } from '@angular/router';
-import { ApiService, CourseProgressResponse } from '../../core/api.service';
+import { ApiService, CourseProgressResponse, UnitProgressResponse } from '../../core/api.service';
 import { AuthService } from '../../core/auth.service';
 import { MascotComponent } from '../../shared/mascot/mascot.component';
 
@@ -120,7 +120,8 @@ interface UserProgressResponse {
             </div>
 
             <p>
-              Les cartes vertes sont déjà terminées. Les cartes blanches sont à commencer.
+              Les cartes vertes sont déjà terminées. Les sections verrouillées se débloquent
+              quand la section précédente est terminée.
             </p>
           </section>
 
@@ -129,6 +130,7 @@ interface UserProgressResponse {
               <article
                 class="unit-card"
                 [class.unit-completed]="unit.completionPercent === 100"
+                [class.unit-locked]="isUnitLocked(unit)"
               >
                 <div class="unit-top">
                   <div class="unit-title-block">
@@ -141,13 +143,23 @@ interface UserProgressResponse {
                   </div>
 
                   <div class="unit-percent">
-                    {{ unit.completionPercent }}%
+                    @if (isUnitLocked(unit)) {
+                      🔒
+                    } @else {
+                      {{ unit.completionPercent }}%
+                    }
                   </div>
                 </div>
 
                 <div class="mini-progress">
                   <div [style.width.%]="unit.completionPercent"></div>
                 </div>
+
+                @if (isUnitLocked(unit)) {
+                  <p class="unit-lock-message">
+                    {{ lockedUnitMessage(unit) }}
+                  </p>
+                }
 
                 <div class="lesson-path">
                   @for (lesson of unit.lessons; track lesson.lessonId) {
@@ -156,10 +168,14 @@ interface UserProgressResponse {
                       class="lesson-node"
                       [class.completed]="lesson.completed"
                       [class.perfect]="lesson.completed && lesson.bestScorePercent === 100"
-                      (click)="openLesson(lesson.lessonId)"
+                      [class.locked]="isUnitLocked(unit)"
+                      [disabled]="isUnitLocked(unit)"
+                      (click)="openLesson(lesson.lessonId, unit)"
                     >
                       <span class="lesson-icon">
-                        @if (lesson.completed && lesson.bestScorePercent === 100) {
+                        @if (isUnitLocked(unit)) {
+                          🔒
+                        } @else if (lesson.completed && lesson.bestScorePercent === 100) {
                           ★
                         } @else if (lesson.completed) {
                           ✓
@@ -172,7 +188,9 @@ interface UserProgressResponse {
                         <strong>{{ lesson.title }}</strong>
 
                         <small>
-                          @if (lesson.completed) {
+                          @if (isUnitLocked(unit)) {
+                            Termine la section précédente
+                          } @else if (lesson.completed) {
                             Meilleur score : {{ lesson.bestScorePercent }}%
                           } @else {
                             Nouvelle leçon
@@ -181,7 +199,7 @@ interface UserProgressResponse {
                       </span>
 
                       <span class="lesson-action">
-                        {{ lesson.completed ? 'Rejouer' : 'Commencer' }}
+                        {{ isUnitLocked(unit) ? 'Verrouillé' : (lesson.completed ? 'Rejouer' : 'Commencer') }}
                       </span>
                     </button>
                   }
@@ -210,17 +228,47 @@ interface UserProgressResponse {
     }
 
     .flag-stripe {
+      position: relative;
       height: 10px;
       margin-bottom: 18px;
+      overflow: hidden;
       border-radius: 999px;
       background:
         linear-gradient(
           90deg,
-          var(--lb-red) 0 30%,
-          var(--white) 30% 70%,
-          var(--cedar-green) 70% 100%
+          var(--lb-red) 0 28%,
+          var(--white) 28% 72%,
+          var(--lb-red) 72% 100%
         );
       box-shadow: 0 10px 22px rgba(31, 41, 51, 0.08);
+    }
+
+    .flag-stripe::after {
+      content: "";
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      width: 18px;
+      height: 12px;
+      transform: translate(-50%, -50%);
+      background: var(--cedar-green);
+      clip-path: polygon(
+        50% 0%,
+        78% 20%,
+        64% 20%,
+        88% 42%,
+        68% 42%,
+        100% 68%,
+        58% 68%,
+        58% 100%,
+        42% 100%,
+        42% 68%,
+        0% 68%,
+        32% 42%,
+        12% 42%,
+        36% 20%,
+        22% 20%
+      );
     }
 
     .hero-card {
@@ -500,7 +548,7 @@ interface UserProgressResponse {
     }
 
     .path-header p {
-      max-width: 360px;
+      max-width: 420px;
       margin: 0;
       color: var(--text-muted);
       font-weight: 650;
@@ -531,6 +579,17 @@ interface UserProgressResponse {
       background: var(--cedar-green);
     }
 
+    .unit-card.unit-locked {
+      opacity: 0.72;
+      border-style: dashed;
+      background:
+        linear-gradient(135deg, rgba(255, 255, 255, 0.82), rgba(248, 244, 236, 0.88));
+    }
+
+    .unit-card.unit-locked::before {
+      background: var(--sand);
+    }
+
     .unit-top {
       display: flex;
       justify-content: space-between;
@@ -557,6 +616,11 @@ interface UserProgressResponse {
       box-shadow: 0 10px 20px rgba(31, 95, 67, 0.20);
     }
 
+    .unit-card.unit-locked .unit-number {
+      background: var(--text-muted);
+      box-shadow: none;
+    }
+
     .unit-top h3 {
       margin: 0;
       font-size: 25px;
@@ -577,6 +641,20 @@ interface UserProgressResponse {
       background: var(--cedar-green-soft);
       text-align: center;
       font-weight: 950;
+    }
+
+    .unit-card.unit-locked .unit-percent {
+      color: var(--text-muted);
+      background: var(--cream-2);
+    }
+
+    .unit-lock-message {
+      margin: 12px 0 18px;
+      padding: 10px 12px;
+      border-radius: 14px;
+      color: var(--text-muted);
+      background: var(--cream-2);
+      font-weight: 800;
     }
 
     .lesson-path {
@@ -615,6 +693,21 @@ interface UserProgressResponse {
         linear-gradient(135deg, #fff8dd, #f3faf3);
     }
 
+    .lesson-node.locked,
+    .lesson-node:disabled {
+      cursor: not-allowed;
+      opacity: 0.72;
+      transform: none;
+      box-shadow: none;
+    }
+
+    .lesson-node.locked:hover,
+    .lesson-node:disabled:hover {
+      transform: none;
+      box-shadow: none;
+      border-color: var(--border-soft);
+    }
+
     .lesson-icon {
       display: grid;
       place-items: center;
@@ -630,6 +723,12 @@ interface UserProgressResponse {
     .lesson-node.perfect .lesson-icon {
       color: #6f4c00;
       background: var(--gold);
+    }
+
+    .lesson-node.locked .lesson-icon {
+      color: var(--text-muted);
+      background: var(--cream-2);
+      box-shadow: none;
     }
 
     .lesson-content {
@@ -649,6 +748,10 @@ interface UserProgressResponse {
     .lesson-action {
       color: var(--cedar-green-dark);
       font-weight: 950;
+    }
+
+    .lesson-node.locked .lesson-action {
+      color: var(--text-muted);
     }
 
     .state-card {
@@ -736,7 +839,7 @@ export class CourseProgressComponent implements OnInit {
     private readonly apiService: ApiService,
     private readonly authService: AuthService,
     private readonly router: Router
-  ) {}
+  ) { }
 
   ngOnInit(): void {
     if (!this.authService.isLoggedIn()) {
@@ -795,7 +898,51 @@ export class CourseProgressComponent implements OnInit {
     });
   }
 
-  openLesson(lessonId: number): void {
+  isUnitLocked(unit: UnitProgressResponse): boolean {
+    if (this.isAdmin || !this.progress) {
+      return false;
+    }
+
+    if (unit.completedLessons > 0) {
+      return false;
+    }
+
+    const unitIndex = this.progress.units.findIndex(candidate => candidate.unitId === unit.unitId);
+
+    if (unitIndex <= 0) {
+      return false;
+    }
+
+    const previousUnit = this.progress.units[unitIndex - 1];
+
+    if (!previousUnit || previousUnit.totalLessons === 0) {
+      return false;
+    }
+
+    return previousUnit.completionPercent < 100;
+  }
+
+  lockedUnitMessage(unit: UnitProgressResponse): string {
+    if (!this.progress) {
+      return 'Cette section est verrouillée.';
+    }
+
+    const unitIndex = this.progress.units.findIndex(candidate => candidate.unitId === unit.unitId);
+
+    if (unitIndex <= 0) {
+      return 'Cette section est disponible.';
+    }
+
+    const previousUnit = this.progress.units[unitIndex - 1];
+
+    return `Termine d’abord la section précédente : ${previousUnit.title}.`;
+  }
+
+  openLesson(lessonId: number, unit?: UnitProgressResponse): void {
+    if (unit && this.isUnitLocked(unit)) {
+      return;
+    }
+
     this.router.navigateByUrl('/lesson/' + lessonId);
   }
 
