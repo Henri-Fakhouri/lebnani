@@ -2,6 +2,7 @@ import { Component, OnInit } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { marked } from 'marked';
+
 import { ApiService, LessonContentBlockResponse } from '../../core/api.service';
 import { AuthService } from '../../core/auth.service';
 import { MascotComponent, MascotMood } from '../../shared/mascot/mascot.component';
@@ -12,7 +13,12 @@ import { WordBankSentenceExerciseComponent } from './word-bank-sentence-exercise
 @Component({
   selector: 'app-lesson',
   standalone: true,
-  imports: [FormsModule, MascotComponent, MatchPairsExerciseComponent, WordBankSentenceExerciseComponent],
+  imports: [
+    FormsModule,
+    MascotComponent,
+    MatchPairsExerciseComponent,
+    WordBankSentenceExerciseComponent
+  ],
   template: `
     <main class="lesson-page">
       <div class="lesson-shell">
@@ -90,7 +96,7 @@ import { WordBankSentenceExerciseComponent } from './word-bank-sentence-exercise
           @if (!loading && !errorMessage && !emptyLesson && readingMode && contentBlocks.length > 0) {
             <section class="reading-hero">
               <div class="hero-copy">
-                <span class="eyebrow">Lecture rapide</span>
+                <span class="eyebrow">Cours</span>
                 <h1>On lit d’abord, puis on pratique.</h1>
                 <p>
                   Le but est simple : comprendre les bases avant de répondre.
@@ -116,17 +122,19 @@ import { WordBankSentenceExerciseComponent } from './word-bank-sentence-exercise
 
                 @if (block.type === 'NOTE') {
                   <div class="note-block">
-                    {{ block.content }}
+                    <span class="block-label">Note</span>
+                    <p>{{ block.content }}</p>
                   </div>
                 }
 
                 @if (block.type === 'EXAMPLE') {
                   <div class="example-block">
-                    {{ block.content }}
+                    <span class="block-label">Exemple</span>
+                    <p>{{ block.content }}</p>
                   </div>
                 }
               }
-                       </div>
+            </div>
 
             @if (exercises.length > 0) {
               <button type="button" class="primary-button full-width next-button" (click)="startExercises()">
@@ -144,28 +152,30 @@ import { WordBankSentenceExerciseComponent } from './word-bank-sentence-exercise
           @if (!loading && !errorMessage && !completed && !readingMode && exercise) {
             <section class="exercise-hero">
               <div class="exercise-copy">
-  <span [class]="exerciseTypeChipClass(exercise.type)">
-    {{ exerciseTypeLabel(exercise.type) }}
-  </span>
+                <span [class]="exerciseTypeChipClass(exercise.type)">
+                  {{ exerciseTypeLabel(exercise.type) }}
+                </span>
 
-  @if (promptHasTarget(exercise.promptFr)) {
-    <div class="prompt-stack">
-      <span class="prompt-instruction">
-        {{ promptInstruction(exercise.promptFr) }}
-      </span>
+                @if (promptHasTarget(exercise.promptFr)) {
+                  <div class="prompt-stack">
+                    <span [class]="promptInstructionClass(exercise.promptFr)">
+                      {{ promptInstruction(exercise.promptFr) }}
+                    </span>
 
-      <h1 class="prompt-target">
-        {{ promptTarget(exercise.promptFr) }}
-      </h1>
-    </div>
-  } @else {
-    <h1>{{ exercise.promptFr }}</h1>
-  }
+                    <h1 [class]="promptTargetClass(exercise.promptFr)">
+                      {{ promptTarget(exercise.promptFr) }}
+                    </h1>
+                  </div>
+                } @else {
+                  <h1 [class]="promptTargetClass(exercise.promptFr)">
+                    {{ exercise.promptFr }}
+                  </h1>
+                }
 
-  <div class="question-progress-bar">
-    <div [style.width.%]="questionProgressPercent"></div>
-  </div>
-</div>
+                <div class="question-progress-bar">
+                  <div [style.width.%]="questionProgressPercent"></div>
+                </div>
+              </div>
 
               <app-mascot
                 [mood]="currentMascotMood"
@@ -176,17 +186,18 @@ import { WordBankSentenceExerciseComponent } from './word-bank-sentence-exercise
 
             @if (exercise.type === 'MULTIPLE_CHOICE') {
               <div class="options">
-                @for (opt of exercise.options; track opt.id) {
+                @for (opt of exercise.options; track opt.id; let optionIndex = $index) {
                   <button
                     type="button"
                     class="option-button"
                     [class.selected]="selectedOptionId === opt.id"
                     [class.correct-selected]="selectedOptionId === opt.id && feedback && lastCorrect"
                     [class.wrong-selected]="selectedOptionId === opt.id && feedback && !lastCorrect"
-                    (click)="answerMC(opt.id)"
                     [disabled]="answering || !!feedback"
+                    (click)="answerMC(opt.id)"
                   >
-                    {{ opt.text }}
+                    <span class="option-letter">{{ optionLetter(optionIndex) }}</span>
+                    <span>{{ opt.text }}</span>
                   </button>
                 }
               </div>
@@ -204,30 +215,30 @@ import { WordBankSentenceExerciseComponent } from './word-bank-sentence-exercise
                 <button
                   type="button"
                   class="primary-button"
-                  (click)="answerText()"
                   [disabled]="answering || !!feedback || !textAnswer.trim()"
+                  (click)="answerText()"
                 >
                   Valider
                 </button>
               </div>
             }
 
-                      @if (exercise.type === 'WORD_BANK_SENTENCE') {
-            <app-word-bank-sentence-exercise
-              [exercise]="exercise"
-              [disabled]="answering || !!feedback"
-              (submitted)="answerWordBankSentence($event)"
-            />
-          }
-            
-                      @if (exercise.type === 'MATCH_PAIRS') {
-            <app-match-pairs-exercise
-              [exercise]="exercise"
-              [disabled]="answering || !!feedback"
-              (completed)="answerMatchPairs($event)"
-            />
-          }
-            
+            @if (exercise.type === 'WORD_BANK_SENTENCE') {
+              <app-word-bank-sentence-exercise
+                [exercise]="exercise"
+                [disabled]="answering || !!feedback"
+                (submitted)="answerWordBankSentence($event)"
+              />
+            }
+
+            @if (exercise.type === 'MATCH_PAIRS') {
+              <app-match-pairs-exercise
+                [exercise]="exercise"
+                [disabled]="answering || !!feedback"
+                (completed)="answerMatchPairs($event)"
+              />
+            }
+
             @if (feedback) {
               <div class="feedback-panel" [class.correct]="lastCorrect" [class.wrong]="!lastCorrect">
                 <div class="feedback-head">
@@ -301,11 +312,11 @@ import { WordBankSentenceExerciseComponent } from './word-bank-sentence-exercise
     .lesson-page {
       min-height: 100vh;
       padding: 32px 20px;
+      color: var(--text-main, #1f2933);
       background:
         radial-gradient(circle at 12% 10%, rgba(214, 40, 40, 0.08), transparent 28%),
         radial-gradient(circle at 88% 18%, rgba(31, 95, 67, 0.12), transparent 30%),
         linear-gradient(135deg, var(--cream, #f8f4ec), #fffaf2);
-      color: var(--text-main, #1f2933);
     }
 
     .lesson-shell {
@@ -317,8 +328,8 @@ import { WordBankSentenceExerciseComponent } from './word-bank-sentence-exercise
       position: relative;
       height: 8px;
       margin-bottom: 18px;
-      border-radius: 999px;
       overflow: hidden;
+      border-radius: 999px;
       background:
         linear-gradient(
           90deg,
@@ -337,23 +348,7 @@ import { WordBankSentenceExerciseComponent } from './word-bank-sentence-exercise
       height: 10px;
       transform: translate(-50%, -50%);
       background: var(--cedar-green, #1f5f43);
-      clip-path: polygon(
-        50% 0%,
-        76% 24%,
-        62% 24%,
-        90% 50%,
-        70% 50%,
-        100% 76%,
-        58% 76%,
-        58% 100%,
-        42% 100%,
-        42% 76%,
-        0% 76%,
-        30% 50%,
-        10% 50%,
-        38% 24%,
-        24% 24%
-      );
+      clip-path: polygon(50% 0%, 76% 24%, 62% 24%, 90% 50%, 70% 50%, 100% 76%, 58% 76%, 58% 100%, 42% 100%, 42% 76%, 0% 76%, 30% 50%, 10% 50%, 38% 24%, 24% 24%);
     }
 
     .lesson-topbar {
@@ -361,15 +356,15 @@ import { WordBankSentenceExerciseComponent } from './word-bank-sentence-exercise
       justify-content: space-between;
       gap: 12px;
       align-items: center;
-      margin-bottom: 18px;
       flex-wrap: wrap;
+      margin-bottom: 18px;
     }
 
     .lesson-card {
-      background: rgba(255, 255, 255, 0.94);
+      padding: 28px;
       border: 1px solid var(--border-soft, #e8ded0);
       border-radius: 28px;
-      padding: 28px;
+      background: rgba(255, 255, 255, 0.94);
       box-shadow: var(--shadow-soft, 0 14px 35px rgba(31, 41, 51, 0.08));
     }
 
@@ -378,8 +373,8 @@ import { WordBankSentenceExerciseComponent } from './word-bank-sentence-exercise
       border: 0;
       border-radius: 999px;
       padding: 12px 18px;
-      font-weight: 800;
       font-size: 15px;
+      font-weight: 800;
       transition:
         transform 0.14s ease,
         box-shadow 0.14s ease,
@@ -388,13 +383,13 @@ import { WordBankSentenceExerciseComponent } from './word-bank-sentence-exercise
     }
 
     .ghost-button {
-      background: var(--cedar-green-soft, #dceee3);
       color: var(--cedar-green-dark, #143d2b);
+      background: var(--cedar-green-soft, #dceee3);
     }
 
     .primary-button {
-      background: var(--cedar-green, #1f5f43);
       color: white;
+      background: var(--cedar-green, #1f5f43);
       box-shadow: 0 10px 24px rgba(31, 95, 67, 0.24);
     }
 
@@ -412,21 +407,56 @@ import { WordBankSentenceExerciseComponent } from './word-bank-sentence-exercise
       width: 100%;
     }
 
-    .chip {
+    .chip,
+    .eyebrow,
+    .exercise-type-chip {
       display: inline-flex;
+      width: fit-content;
       align-items: center;
-      gap: 6px;
       border-radius: 999px;
+      font-weight: 900;
+    }
+
+    .chip {
+      gap: 6px;
       padding: 6px 10px;
-      background: var(--cedar-green-soft, #dceee3);
       color: var(--cedar-green-dark, #143d2b);
+      background: var(--cedar-green-soft, #dceee3);
       font-size: 13px;
-      font-weight: 800;
     }
 
     .chip-gold {
-      background: #fff1c9;
       color: #6f4c00;
+      background: #fff1c9;
+    }
+
+    .eyebrow,
+    .exercise-type-chip {
+      padding: 7px 12px;
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.07em;
+    }
+
+    .eyebrow,
+    .type-choice {
+      color: var(--cedar-green-dark, #143d2b);
+      background: var(--cedar-green-soft, #dceee3);
+    }
+
+    .type-written {
+      color: #6f4c00;
+      background: #fff1c9;
+    }
+
+    .type-match {
+      color: var(--lb-red-dark, #a61f1f);
+      background: var(--lb-red-soft, #fde2e2);
+    }
+
+    .type-sentence {
+      color: #1b5f82;
+      background: rgba(77, 168, 218, 0.16);
     }
 
     .state-panel,
@@ -462,38 +492,17 @@ import { WordBankSentenceExerciseComponent } from './word-bank-sentence-exercise
       line-height: 1.5;
     }
 
-        .exercise-type-chip {
-      display: inline-flex;
-      width: fit-content;
-      align-items: center;
-      gap: 8px;
-      margin-bottom: 12px;
-      padding: 7px 12px;
-      border-radius: 999px;
-      font-size: 12px;
-      font-weight: 950;
-      text-transform: uppercase;
-      letter-spacing: 0.07em;
+    .state-title {
+      margin: 0;
+      font-size: 32px;
+      line-height: 1;
+      letter-spacing: -0.04em;
     }
 
-    .type-choice {
-      color: var(--cedar-green-dark, #143d2b);
-      background: var(--cedar-green-soft, #dceee3);
-    }
-
-    .type-written {
-      color: #6f4c00;
-      background: #fff1c9;
-    }
-
-    .type-match {
-      color: var(--lb-red-dark, #a61f1f);
-      background: var(--lb-red-soft, #fde2e2);
-    }
-
-    .type-sentence {
-      color: #1b5f82;
-      background: rgba(77, 168, 218, 0.16);
+    .state-actions {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
     }
 
     .prompt-stack {
@@ -508,46 +517,27 @@ import { WordBankSentenceExerciseComponent } from './word-bank-sentence-exercise
       letter-spacing: -0.02em;
     }
 
+    .prompt-instruction.lang-libanais {
+      color: var(--lb-red, #d62828);
+    }
+
+    .prompt-instruction.lang-francais {
+      color: var(--sea-blue, #4da8da);
+    }
+
     .prompt-target {
       color: var(--text-main, #1f2933);
       font-size: clamp(36px, 5vw, 58px);
       font-weight: 950;
-      letter-spacing: -0.055em;
       line-height: 0.95;
-    }
-
-    .eyebrow {
-      display: inline-flex;
-      align-items: center;
-      width: fit-content;
-      border-radius: 999px;
-      padding: 6px 10px;
-      background: var(--cedar-green-soft, #dceee3);
-      color: var(--cedar-green-dark, #143d2b);
-      font-size: 13px;
-      font-weight: 900;
-      text-transform: uppercase;
-      letter-spacing: 0.04em;
-    }
-
-    .state-title {
-      margin: 0;
-      font-size: 32px;
-      line-height: 1;
-      letter-spacing: -0.04em;
-    }
-
-    .state-actions {
-      display: flex;
-      gap: 12px;
-      flex-wrap: wrap;
+      letter-spacing: -0.055em;
     }
 
     .question-progress-bar {
       height: 12px;
       margin-top: 16px;
-      border-radius: 999px;
       overflow: hidden;
+      border-radius: 999px;
       background: var(--cream-2, #efe7da);
     }
 
@@ -575,8 +565,8 @@ import { WordBankSentenceExerciseComponent } from './word-bank-sentence-exercise
     }
 
     :host ::ng-deep .markdown-block p {
-      color: #2d3a30;
       margin: 0 0 14px;
+      color: #2d3a30;
     }
 
     :host ::ng-deep .markdown-block strong {
@@ -586,11 +576,11 @@ import { WordBankSentenceExerciseComponent } from './word-bank-sentence-exercise
 
     :host ::ng-deep .markdown-block table {
       width: 100%;
-      border-collapse: collapse;
       margin: 16px 0;
-      border-radius: 12px;
       overflow: hidden;
       border: 1px solid #e7e1d6;
+      border-radius: 12px;
+      border-collapse: collapse;
     }
 
     :host ::ng-deep .markdown-block th,
@@ -601,14 +591,14 @@ import { WordBankSentenceExerciseComponent } from './word-bank-sentence-exercise
     }
 
     :host ::ng-deep .markdown-block th {
-      background: #eef4ed;
       color: #253d2c;
+      background: #eef4ed;
       font-weight: 800;
     }
 
     :host ::ng-deep .markdown-block td {
-      background: #fffdf8;
       color: #18251d;
+      background: #fffdf8;
     }
 
     :host ::ng-deep .markdown-block ul,
@@ -630,32 +620,51 @@ import { WordBankSentenceExerciseComponent } from './word-bank-sentence-exercise
     }
 
     .note-block {
-      background: #fff7df;
       color: #6a5320;
+      background: #fff7df;
       border: 1px solid #f3e1a5;
     }
 
     .example-block {
-      background: #f3faf3;
       color: #253d2c;
+      background: #f3faf3;
       border: 1px solid #d7ebd7;
     }
 
-    .options {
+    .block-label {
+      display: block;
+      margin-bottom: 6px;
+      font-size: 12px;
+      font-weight: 950;
+      text-transform: uppercase;
+      letter-spacing: 0.07em;
+    }
+
+    .note-block p,
+    .example-block p {
+      margin: 0;
+    }
+
+    .options,
+    .typed-answer {
       display: grid;
       gap: 12px;
     }
 
     .option-button {
       width: 100%;
+      display: grid;
+      grid-template-columns: auto 1fr;
+      gap: 12px;
+      align-items: center;
       border: 2px solid #e7e1d6;
       border-radius: 18px;
-      padding: 16px 18px;
-      background: #fffdf8;
+      padding: 14px 16px;
       color: #18251d;
+      background: #fffdf8;
       text-align: left;
-      font-weight: 800;
       font-size: 15px;
+      font-weight: 850;
       transition:
         background 0.14s ease,
         border-color 0.14s ease,
@@ -663,62 +672,71 @@ import { WordBankSentenceExerciseComponent } from './word-bank-sentence-exercise
         box-shadow 0.14s ease;
     }
 
-    .option-button:not(:disabled):hover {
-      transform: translateY(-1px);
+    .option-letter {
+      display: grid;
+      place-items: center;
+      width: 30px;
+      height: 30px;
+      border-radius: 999px;
+      color: var(--cedar-green-dark, #143d2b);
+      background: var(--cedar-green-soft, #dceee3);
+      font-size: 12px;
+      font-weight: 950;
+    }
+
+    .option-button:not(:disabled):hover,
+    .option-button.selected {
       border-color: var(--cedar-green, #1f5f43);
       background: #f8fbf6;
       box-shadow: 0 8px 18px rgba(0, 0, 0, 0.06);
-    }
-
-    .option-button.selected {
-      border-color: var(--cedar-green, #1f5f43);
-      background: #eef4ed;
+      transform: translateY(-1px);
     }
 
     .option-button.correct-selected {
       border-color: #1b7f3a;
-      background: #1b7f3a;
       color: white;
+      background: #1b7f3a;
       box-shadow: 0 8px 18px rgba(27, 127, 58, 0.18);
     }
 
     .option-button.wrong-selected {
       border-color: #b00020;
-      background: #b00020;
       color: white;
+      background: #b00020;
       box-shadow: 0 8px 18px rgba(176, 0, 32, 0.18);
+    }
+
+    .option-button.correct-selected .option-letter,
+    .option-button.wrong-selected .option-letter {
+      color: inherit;
+      background: rgba(255, 255, 255, 0.18);
     }
 
     .option-button:disabled:not(.correct-selected):not(.wrong-selected) {
       opacity: 0.55;
-      background: #f4f1ea;
       color: #667064;
+      background: #f4f1ea;
       border-color: #e7e1d6;
-    }
-
-    .typed-answer {
-      display: grid;
-      gap: 12px;
     }
 
     .typed-answer input {
       padding: 14px;
       border: 1px solid #ddd;
       border-radius: 16px;
-      font-size: 16px;
       background: white;
+      font-size: 16px;
     }
 
     .typed-answer input:disabled {
-      background: #f4f1ea;
       color: #667064;
+      background: #f4f1ea;
     }
 
     .feedback-panel {
       margin-top: 18px;
+      border: 1px solid #d7ebd7;
       border-radius: 22px;
       padding: 16px;
-      border: 1px solid #d7ebd7;
       background: #f3faf3;
     }
 
@@ -733,9 +751,9 @@ import { WordBankSentenceExerciseComponent } from './word-bank-sentence-exercise
 
     .feedback-text {
       margin: 0 0 14px;
+      color: #1f2933;
       font-weight: 800;
       line-height: 1.45;
-      color: #1f2933;
     }
 
     .result-grid {
@@ -747,15 +765,15 @@ import { WordBankSentenceExerciseComponent } from './word-bank-sentence-exercise
 
     .result-item {
       border: 1px solid #eee8dc;
-      background: #fffdf8;
       border-radius: 18px;
       padding: 18px;
+      background: #fffdf8;
     }
 
     .result-item strong {
       display: block;
-      font-size: 30px;
       color: var(--cedar-green, #1f5f43);
+      font-size: 30px;
     }
 
     .result-item span {
@@ -768,11 +786,11 @@ import { WordBankSentenceExerciseComponent } from './word-bank-sentence-exercise
 
     .hint {
       margin: 0 0 18px;
-      background: #fff7df;
-      color: #6a5320;
       border: 1px solid #f3e1a5;
       border-radius: 16px;
       padding: 12px 14px;
+      color: #6a5320;
+      background: #fff7df;
       font-weight: 700;
     }
 
@@ -883,6 +901,14 @@ export class LessonComponent implements OnInit {
         return 'Écris ce que tu entends ou ce que tu comprends.';
       }
 
+      if (this.exercise?.type === 'WORD_BANK_SENTENCE') {
+        return 'Remets les mots dans le bon ordre.';
+      }
+
+      if (this.exercise?.type === 'MATCH_PAIRS') {
+        return 'Associe chaque mot à sa traduction.';
+      }
+
       return 'Choisis la bonne réponse.';
     }
 
@@ -907,66 +933,6 @@ export class LessonComponent implements OnInit {
     }
 
     return 'happy';
-  }
-
-    exerciseTypeLabel(type: string): string {
-    switch (type) {
-      case 'MULTIPLE_CHOICE':
-        return 'Choix multiple';
-      case 'TYPE_ANSWER':
-        return 'Réponse écrite';
-      case 'MATCH_PAIRS':
-        return 'Association';
-      case 'WORD_BANK_SENTENCE':
-        return 'Phrase à construire';
-      default:
-        return 'Exercice';
-    }
-  }
-
-  exerciseTypeChipClass(type: string): string {
-    switch (type) {
-      case 'MULTIPLE_CHOICE':
-        return 'exercise-type-chip type-choice';
-      case 'TYPE_ANSWER':
-        return 'exercise-type-chip type-written';
-      case 'MATCH_PAIRS':
-        return 'exercise-type-chip type-match';
-      case 'WORD_BANK_SENTENCE':
-        return 'exercise-type-chip type-sentence';
-      default:
-        return 'exercise-type-chip';
-    }
-  }
-
-  promptHasTarget(prompt: string): boolean {
-    return prompt.includes(':');
-  }
-
-  promptInstruction(prompt: string): string {
-    const split = this.splitPrompt(prompt);
-    return split.instruction;
-  }
-
-  promptTarget(prompt: string): string {
-    const split = this.splitPrompt(prompt);
-    return split.target;
-  }
-
-  private splitPrompt(prompt: string): { instruction: string; target: string } {
-    const separatorIndex = prompt.indexOf(':');
-
-    if (separatorIndex < 0) {
-      return {
-        instruction: '',
-        target: prompt
-      };
-    }
-
-    return {
-      instruction: prompt.slice(0, separatorIndex).trim(),
-      target: prompt.slice(separatorIndex + 1).trim()
-    };
   }
 
   get feedbackMascotMessage(): string {
@@ -1053,7 +1019,6 @@ export class LessonComponent implements OnInit {
       }
     });
   }
-
 
   completeCourseOnlyLesson(): void {
     if (this.answering || this.completed) {
@@ -1214,6 +1179,70 @@ export class LessonComponent implements OnInit {
     this.soundService.playWrong();
   }
 
+  exerciseTypeLabel(type: string): string {
+    switch (type) {
+      case 'MULTIPLE_CHOICE':
+        return 'Choix multiple';
+      case 'TYPE_ANSWER':
+        return 'Réponse écrite';
+      case 'MATCH_PAIRS':
+        return 'Association';
+      case 'WORD_BANK_SENTENCE':
+        return 'Phrase à construire';
+      default:
+        return 'Exercice';
+    }
+  }
+
+  exerciseTypeChipClass(type: string): string {
+    switch (type) {
+      case 'MULTIPLE_CHOICE':
+        return 'exercise-type-chip type-choice';
+      case 'TYPE_ANSWER':
+        return 'exercise-type-chip type-written';
+      case 'MATCH_PAIRS':
+        return 'exercise-type-chip type-match';
+      case 'WORD_BANK_SENTENCE':
+        return 'exercise-type-chip type-sentence';
+      default:
+        return 'exercise-type-chip';
+    }
+  }
+
+  promptHasTarget(prompt: string | null | undefined): boolean {
+    return this.safePrompt(prompt).includes(':');
+  }
+
+  promptInstruction(prompt: string | null | undefined): string {
+    return this.splitPrompt(prompt).instruction;
+  }
+
+  promptTarget(prompt: string | null | undefined): string {
+    return this.splitPrompt(prompt).target;
+  }
+
+  promptInstructionClass(prompt: string | null | undefined): string {
+    const instruction = this.promptInstruction(prompt).toLowerCase();
+
+    if (instruction.includes('libanais')) {
+      return 'prompt-instruction lang-libanais';
+    }
+
+    if (instruction.includes('français') || instruction.includes('francais')) {
+      return 'prompt-instruction lang-francais';
+    }
+
+    return 'prompt-instruction';
+  }
+
+  promptTargetClass(_prompt: string | null | undefined): string {
+    return 'prompt-target';
+  }
+
+  optionLetter(index: number): string {
+    return String.fromCharCode(65 + index);
+  }
+
   renderMarkdown(content: string): string {
     const normalizedContent = content.replaceAll(String.raw`\n`, '\n');
 
@@ -1221,10 +1250,31 @@ export class LessonComponent implements OnInit {
       async: false,
       gfm: true,
       breaks: true
-    });
+    }) as string;
   }
 
   backToCourse(): void {
     this.router.navigateByUrl('/course');
+  }
+
+  private splitPrompt(prompt: string | null | undefined): { instruction: string; target: string } {
+    const safePrompt = this.safePrompt(prompt);
+    const separatorIndex = safePrompt.indexOf(':');
+
+    if (separatorIndex < 0) {
+      return {
+        instruction: '',
+        target: safePrompt
+      };
+    }
+
+    return {
+      instruction: safePrompt.slice(0, separatorIndex).trim(),
+      target: safePrompt.slice(separatorIndex + 1).trim()
+    };
+  }
+
+  private safePrompt(prompt: string | null | undefined): string {
+    return prompt ?? '';
   }
 }
