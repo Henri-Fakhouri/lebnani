@@ -3,12 +3,40 @@ import { ActivatedRoute, Router } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { marked } from 'marked';
 
-import { ApiService, LessonContentBlockResponse } from '../../core/api.service';
+import {
+  ApiService,
+  LessonContentBlockResponse
+} from '../../core/api.service';
 import { AuthService } from '../../core/auth.service';
 import { MascotComponent, MascotMood } from '../../shared/mascot/mascot.component';
 import { SoundService } from '../../core/sound.service';
 import { MatchPairsExerciseComponent } from './match-pairs-exercise.component';
 import { WordBankSentenceExerciseComponent } from './word-bank-sentence-exercise.component';
+
+type NextLessonLike = {
+  lessonId: number;
+  lessonTitle?: string;
+  title?: string;
+};
+
+type CompleteLessonLike = {
+  attemptId?: number;
+  lessonId?: number;
+  status?: string;
+  totalExercises: number;
+  answeredExercises?: number;
+  correctAnswers: number;
+  wrongAnswers?: number;
+  scorePercent: number;
+  xpAwarded: number;
+  wrongAnswerDetails?: WrongAnswerDetailLike[];
+};
+
+type WrongAnswerDetailLike = {
+  promptFr: string;
+  submittedAnswer: string;
+  correctAnswer: string;
+};
 
 @Component({
   selector: 'app-lesson',
@@ -29,28 +57,24 @@ import { WordBankSentenceExerciseComponent } from './word-bank-sentence-exercise
             ← Parcours
           </button>
 
-          @if (!loading && !completed && !readingMode && exercise) {
+          @if (!loading && !completed && !readingMode && !transitioning && exercise) {
             <span class="chip">
               Question {{ index + 1 }} / {{ exercises.length }}
             </span>
           }
 
           @if (!loading && readingMode && !emptyLesson && contentBlocks.length > 0) {
-            <span class="chip">
-              Cours
-            </span>
+            <span class="chip">Cours</span>
           }
 
           @if (!loading && completed && result) {
-            <span class="chip chip-gold">
-              Leçon terminée
-            </span>
+            <span class="chip chip-gold">Leçon terminée</span>
           }
         </header>
 
         <section class="lesson-card">
           @if (loading) {
-            <div class="state-panel">
+            <div class="state-panel fade-in">
               <app-mascot
                 mood="thinking"
                 size="lg"
@@ -60,7 +84,7 @@ import { WordBankSentenceExerciseComponent } from './word-bank-sentence-exercise
           }
 
           @if (!loading && errorMessage) {
-            <div class="state-panel">
+            <div class="state-panel fade-in">
               <app-mascot
                 mood="sad"
                 size="lg"
@@ -76,7 +100,7 @@ import { WordBankSentenceExerciseComponent } from './word-bank-sentence-exercise
           }
 
           @if (!loading && !errorMessage && emptyLesson) {
-            <div class="state-panel">
+            <div class="state-panel fade-in">
               <app-mascot
                 mood="encouraging"
                 size="lg"
@@ -84,6 +108,7 @@ import { WordBankSentenceExerciseComponent } from './word-bank-sentence-exercise
               />
 
               <h1 class="state-title">Leçon vide</h1>
+              <p class="state-sub">Reviens bientôt, le contenu arrive.</p>
 
               <div class="state-actions">
                 <button type="button" class="primary-button" (click)="backToCourse()">
@@ -94,7 +119,7 @@ import { WordBankSentenceExerciseComponent } from './word-bank-sentence-exercise
           }
 
           @if (!loading && !errorMessage && !emptyLesson && readingMode && contentBlocks.length > 0) {
-            <section class="reading-hero">
+            <section class="reading-hero fade-in">
               <div class="hero-copy">
                 <span class="eyebrow">Cours</span>
                 <h1>On lit d’abord, puis on pratique.</h1>
@@ -110,7 +135,7 @@ import { WordBankSentenceExerciseComponent } from './word-bank-sentence-exercise
               />
             </section>
 
-            <div class="course-content">
+            <div class="course-content fade-in">
               @for (block of contentBlocks; track block.id) {
                 @if (block.type === 'HEADING') {
                   <h2 class="content-heading">{{ block.content }}</h2>
@@ -137,172 +162,263 @@ import { WordBankSentenceExerciseComponent } from './word-bank-sentence-exercise
             </div>
 
             @if (exercises.length > 0) {
-              <button type="button" class="primary-button full-width next-button" (click)="startExercises()">
-                Commencer les exercices
+              <button type="button" class="primary-button full-width next-button" (click)="beginTransition()">
+                Commencer les exercices →
               </button>
             }
 
             @if (exercises.length === 0) {
-              <button type="button" class="primary-button full-width next-button" (click)="completeCourseOnlyLesson()">
+              <button
+                type="button"
+                class="primary-button full-width next-button"
+                [disabled]="answering"
+                (click)="completeCourseOnlyLesson()"
+              >
                 Terminer la lecture
               </button>
             }
           }
 
-          @if (!loading && !errorMessage && !completed && !readingMode && exercise) {
-            <section class="exercise-hero">
-              <div class="exercise-copy">
-                <span [class]="exerciseTypeChipClass(exercise.type)">
-                  {{ exerciseTypeLabel(exercise.type) }}
-                </span>
-
-                @if (promptHasTarget(exercise.promptFr)) {
-                  <div class="prompt-stack">
-                    <span [class]="promptInstructionClass(exercise.promptFr)">
-                      {{ promptInstruction(exercise.promptFr) }}
-                    </span>
-
-                    <h1 [class]="promptTargetClass(exercise.promptFr)">
-                      {{ promptTarget(exercise.promptFr) }}
-                    </h1>
-                  </div>
-                } @else {
-                  <h1 [class]="promptTargetClass(exercise.promptFr)">
-                    {{ exercise.promptFr }}
-                  </h1>
-                }
-
-                <div class="question-progress-bar">
-                  <div [style.width.%]="questionProgressPercent"></div>
-                </div>
-              </div>
-
+          @if (!loading && !errorMessage && transitioning) {
+            <div class="state-panel fade-in">
               <app-mascot
-                [mood]="currentMascotMood"
-                size="md"
-                [message]="currentMascotMessage"
+                mood="excited"
+                size="lg"
+                message="C’est parti pour les exercices !"
               />
-            </section>
+              <div class="transition-spinner"></div>
+            </div>
+          }
 
-            @if (exercise.type === 'MULTIPLE_CHOICE') {
-              <div class="options">
-                @for (opt of exercise.options; track opt.id; let optionIndex = $index) {
-                  <button
-                    type="button"
-                    class="option-button"
-                    [class.selected]="selectedOptionId === opt.id"
-                    [class.correct-selected]="selectedOptionId === opt.id && feedback && lastCorrect"
-                    [class.wrong-selected]="selectedOptionId === opt.id && feedback && !lastCorrect"
-                    [disabled]="answering || !!feedback"
-                    (click)="answerMC(opt.id)"
-                  >
-                    <span class="option-letter">{{ optionLetter(optionIndex) }}</span>
-                    <span>{{ opt.text }}</span>
-                  </button>
-                }
-              </div>
-            }
+          @if (!loading && !errorMessage && !emptyLesson && !readingMode && !transitioning && !completed && exercise) {
+            <section class="exercise-section fade-in">
+              <section class="exercise-hero">
+                <div class="exercise-copy">
+                  <span [class]="exerciseTypeChipClass(exercise.type)">
+                    {{ exerciseTypeLabel(exercise.type) }}
+                  </span>
 
-            @if (exercise.type === 'TYPE_ANSWER') {
-              <div class="typed-answer">
-                <input
-                  [(ngModel)]="textAnswer"
-                  [disabled]="answering || !!feedback"
-                  placeholder="Ta réponse"
-                  (keyup.enter)="answerText()"
-                />
+                  @if (promptHasTarget(exercise.promptFr)) {
+                    <div class="prompt-stack">
+                      <span [class]="promptInstructionClass(exercise.promptFr)">
+                        {{ promptInstruction(exercise.promptFr) }}
+                      </span>
 
-                <button
-                  type="button"
-                  class="primary-button"
-                  [disabled]="answering || !!feedback || !textAnswer.trim()"
-                  (click)="answerText()"
-                >
-                  Valider
-                </button>
-              </div>
-            }
+                      <h1 [class]="promptTargetClass(exercise.promptFr)">
+                        {{ promptTarget(exercise.promptFr) }}
+                      </h1>
+                    </div>
+                  } @else {
+                    <h1 [class]="promptTargetClass(exercise.promptFr)">
+                      {{ exercise.promptFr }}
+                    </h1>
+                  }
 
-            @if (exercise.type === 'WORD_BANK_SENTENCE') {
-              <app-word-bank-sentence-exercise
-                [exercise]="exercise"
-                [disabled]="answering || !!feedback"
-                (submitted)="answerWordBankSentence($event)"
-              />
-            }
-
-            @if (exercise.type === 'MATCH_PAIRS') {
-              <app-match-pairs-exercise
-                [exercise]="exercise"
-                [disabled]="answering || !!feedback"
-                (completed)="answerMatchPairs($event)"
-              />
-            }
-
-            @if (feedback) {
-              <div class="feedback-panel" [class.correct]="lastCorrect" [class.wrong]="!lastCorrect">
-                <div class="feedback-head">
-                  <app-mascot
-                    [mood]="feedbackMascotMood"
-                    size="sm"
-                    [message]="feedbackMascotMessage"
-                  />
+                  <div class="question-progress-bar">
+                    <div [style.width.%]="questionProgressPercent"></div>
+                  </div>
                 </div>
 
-                <p class="feedback-text">
-                  {{ feedback }}
-                </p>
+                <app-mascot
+                  [mood]="currentMascotMood"
+                  size="md"
+                  [message]="currentMascotMessage"
+                />
+              </section>
 
-                <button type="button" class="primary-button full-width next-button" (click)="next()">
-                  Continuer
-                </button>
-              </div>
-            }
+              @if (exercise.type === 'MULTIPLE_CHOICE') {
+                <div class="options">
+                  @for (opt of exercise.options; track opt.id; let optionIndex = $index) {
+                    <button
+                      type="button"
+                      class="option-button"
+                      [class.selected]="selectedOptionId === opt.id"
+                      [class.correct-selected]="showFeedback && opt.id === correctOptionId"
+                      [class.wrong-selected]="showFeedback && selectedOptionId === opt.id && !lastCorrect"
+                      [disabled]="answering || showFeedback"
+                      (click)="answerMC(opt.id)"
+                    >
+                      <span class="option-letter">{{ optionLetter(optionIndex) }}</span>
+                      <span>{{ opt.text }}</span>
+                    </button>
+                  }
+                </div>
+              }
+
+              @if (exercise.type === 'TYPE_ANSWER') {
+                <div class="typed-answer">
+                  <input
+                    [(ngModel)]="textAnswer"
+                    [disabled]="answering || showFeedback"
+                    placeholder="Ta réponse"
+                    (keyup.enter)="answerText()"
+                  />
+
+                  @if (!showFeedback) {
+                    <button
+                      type="button"
+                      class="primary-button"
+                      [disabled]="answering || !textAnswer.trim()"
+                      (click)="answerText()"
+                    >
+                      Valider
+                    </button>
+                  }
+                </div>
+              }
+
+              @if (exercise.type === 'WORD_BANK_SENTENCE') {
+                <app-word-bank-sentence-exercise
+                  [exercise]="exercise"
+                  [disabled]="answering || showFeedback"
+                  (submitted)="answerWordBankSentence($event)"
+                />
+              }
+
+              @if (exercise.type === 'MATCH_PAIRS') {
+                <app-match-pairs-exercise
+                  [exercise]="exercise"
+                  [disabled]="answering || showFeedback"
+                  (completed)="answerMatchPairs($event)"
+                />
+              }
+
+              @if (feedback) {
+                <div class="feedback-panel fade-in" [class.correct]="lastCorrect" [class.wrong]="!lastCorrect">
+                  <div class="feedback-head">
+                    <app-mascot
+                      [mood]="feedbackMascotMood"
+                      size="sm"
+                      [message]="feedbackMascotMessage"
+                    />
+                  </div>
+
+                  <p class="feedback-text">
+                    {{ feedback }}
+                  </p>
+
+                  @if (!lastCorrect && lastExpectedAnswer) {
+                    <div class="correct-answer-reveal">
+                      <span>Bonne réponse :</span>
+                      <strong>{{ lastExpectedAnswer }}</strong>
+                    </div>
+                  }
+
+                  @if (showNextButton) {
+                    <button type="button" class="primary-button full-width next-button fade-in" (click)="next()">
+                      {{ isLastQuestion ? 'Terminer la leçon' : 'Continuer' }}
+                    </button>
+                  }
+                </div>
+              }
+            </section>
           }
 
           @if (!loading && !errorMessage && completed && result) {
-            <section class="result-hero">
-              <div class="hero-copy">
-                <span class="eyebrow">Résultat</span>
-                <h1>Leçon terminée</h1>
-                <p>
-                  Voilà le résultat de cette tentative.
+            <section class="result-screen fade-in">
+              <div class="result-top">
+                <div class="score-circle-wrap pop-in">
+                  <svg class="score-ring" viewBox="0 0 100 100">
+                    <circle class="ring-track" cx="50" cy="50" r="40"></circle>
+                    <circle
+                      class="ring-fill"
+                      [class.ring-perfect]="result.scorePercent === 100"
+                      cx="50"
+                      cy="50"
+                      r="40"
+                      [style.stroke-dashoffset]="scoreCircleOffset"
+                    ></circle>
+                  </svg>
+
+                  <div class="score-overlay">
+                    <span class="score-pct">{{ result.scorePercent }}%</span>
+                    <span class="score-sub">score</span>
+                  </div>
+                </div>
+
+                <div class="hero-copy">
+                  <span class="eyebrow">Résultat</span>
+                  <h1>Leçon terminée</h1>
+                  <p>{{ resultMascotMessage }}</p>
+                </div>
+
+                <app-mascot
+                  [mood]="resultMascotMood"
+                  size="md"
+                  [message]="resultMascotMessage"
+                />
+              </div>
+
+              @if (result.xpAwarded > 0) {
+                <div class="xp-badge pop-in">
+                  +{{ result.xpAwarded }} XP ⭐
+                </div>
+              }
+
+              @if (result.xpAwarded === 0) {
+                <p class="hint">
+                  Cette leçon était déjà terminée, donc aucun XP supplémentaire n’a été accordé.
                 </p>
+              }
+
+              <div class="result-grid">
+                <div class="result-item">
+                  <strong>{{ result.correctAnswers }}/{{ result.totalExercises }}</strong>
+                  <span>bonnes réponses</span>
+                </div>
+
+                <div class="result-item">
+                  <strong>{{ resultWrongAnswers }}</strong>
+                  <span>erreurs</span>
+                </div>
+
+                <div class="result-item">
+                  <strong>{{ result.xpAwarded }}</strong>
+                  <span>XP gagnés</span>
+                </div>
               </div>
 
-              <app-mascot
-                [mood]="resultMascotMood"
-                size="lg"
-                [message]="resultMascotMessage"
-              />
+              @if (wrongAnswerDetails.length > 0) {
+                <section class="wrong-section">
+                  <h3>Ce qui mérite attention :</h3>
+
+                  <div class="wrong-list">
+                    @for (wrong of wrongAnswerDetails; track wrong.promptFr) {
+                      <article class="wrong-card">
+                        <p class="wrong-prompt">{{ wrong.promptFr }}</p>
+
+                        <div class="wrong-line">
+                          <span>Ta réponse :</span>
+                          <strong class="wrong-value">{{ wrong.submittedAnswer }}</strong>
+                        </div>
+
+                        <div class="wrong-line">
+                          <span>Bonne réponse :</span>
+                          <strong class="correct-value">{{ wrong.correctAnswer }}</strong>
+                        </div>
+                      </article>
+                    }
+                  </div>
+                </section>
+              }
+
+              <div class="result-actions">
+                <button type="button" class="ghost-button" (click)="replayLesson()">
+                  🔁 Rejouer
+                </button>
+
+                @if (nextLesson) {
+                  <button type="button" class="primary-button next-lesson-button" (click)="goToNextLesson()">
+                    <small>Leçon suivante</small>
+                    <span>{{ nextLessonTitle }} →</span>
+                  </button>
+                }
+
+                <button type="button" class="primary-button" (click)="backToCourse()">
+                  Retour au parcours
+                </button>
+              </div>
             </section>
-
-            <div class="result-grid">
-              <div class="result-item">
-                <strong>{{ result.scorePercent }}%</strong>
-                <span>score</span>
-              </div>
-
-              <div class="result-item">
-                <strong>{{ result.correctAnswers }}/{{ result.totalExercises }}</strong>
-                <span>bonnes réponses</span>
-              </div>
-
-              <div class="result-item">
-                <strong>{{ result.xpAwarded }}</strong>
-                <span>XP gagnés</span>
-              </div>
-            </div>
-
-            @if (result.xpAwarded === 0) {
-              <p class="hint">
-                Cette leçon était déjà terminée, donc aucun XP supplémentaire n’a été accordé.
-              </p>
-            }
-
-            <button type="button" class="primary-button full-width" (click)="backToCourse()">
-              Retour au parcours
-            </button>
           }
         </section>
       </div>
@@ -330,13 +446,12 @@ import { WordBankSentenceExerciseComponent } from './word-bank-sentence-exercise
       margin-bottom: 18px;
       overflow: hidden;
       border-radius: 999px;
-      background:
-        linear-gradient(
-          90deg,
-          var(--lb-red, #d62828) 0 28%,
-          var(--white, #ffffff) 28% 72%,
-          var(--lb-red, #d62828) 72% 100%
-        );
+      background: linear-gradient(
+        90deg,
+        var(--lb-red, #d62828) 0 28%,
+        var(--white, #ffffff) 28% 72%,
+        var(--lb-red, #d62828) 72% 100%
+      );
     }
 
     .lesson-flag::after {
@@ -375,11 +490,8 @@ import { WordBankSentenceExerciseComponent } from './word-bank-sentence-exercise
       padding: 12px 18px;
       font-size: 15px;
       font-weight: 800;
-      transition:
-        transform 0.14s ease,
-        box-shadow 0.14s ease,
-        background 0.14s ease,
-        color 0.14s ease;
+      cursor: pointer;
+      transition: transform 0.14s ease, box-shadow 0.14s ease, background 0.14s ease;
     }
 
     .ghost-button {
@@ -401,6 +513,7 @@ import { WordBankSentenceExerciseComponent } from './word-bank-sentence-exercise
     .primary-button:disabled {
       opacity: 0.55;
       cursor: default;
+      transform: none;
     }
 
     .full-width {
@@ -461,16 +574,18 @@ import { WordBankSentenceExerciseComponent } from './word-bank-sentence-exercise
 
     .state-panel,
     .reading-hero,
-    .exercise-hero,
-    .result-hero {
+    .exercise-hero {
       display: grid;
       gap: 20px;
       align-items: center;
     }
 
+    .state-panel {
+      text-align: center;
+    }
+
     .reading-hero,
-    .exercise-hero,
-    .result-hero {
+    .exercise-hero {
       grid-template-columns: minmax(0, 1fr) auto;
       margin-bottom: 24px;
     }
@@ -484,11 +599,10 @@ import { WordBankSentenceExerciseComponent } from './word-bank-sentence-exercise
     }
 
     .hero-copy p,
-    .exercise-copy p,
-    .state-panel p {
+    .state-sub {
       margin: 0;
       color: var(--text-muted, #65726a);
-      font-weight: 600;
+      font-weight: 700;
       line-height: 1.5;
     }
 
@@ -501,36 +615,19 @@ import { WordBankSentenceExerciseComponent } from './word-bank-sentence-exercise
 
     .state-actions {
       display: flex;
+      justify-content: center;
       gap: 12px;
       flex-wrap: wrap;
     }
 
-    .prompt-stack {
-      display: grid;
-      gap: 6px;
-    }
-
-    .prompt-instruction {
-      color: var(--text-muted, #65726a);
-      font-size: 18px;
-      font-weight: 900;
-      letter-spacing: -0.02em;
-    }
-
-    .prompt-instruction.lang-libanais {
-      color: var(--lb-red, #d62828);
-    }
-
-    .prompt-instruction.lang-francais {
-      color: var(--sea-blue, #4da8da);
-    }
-
-    .prompt-target {
-      color: var(--text-main, #1f2933);
-      font-size: clamp(36px, 5vw, 58px);
-      font-weight: 950;
-      line-height: 0.95;
-      letter-spacing: -0.055em;
+    .transition-spinner {
+      width: 42px;
+      height: 42px;
+      margin: 0 auto;
+      border: 4px solid var(--cedar-green-soft, #dceee3);
+      border-top-color: var(--cedar-green, #1f5f43);
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
     }
 
     .question-progress-bar {
@@ -547,7 +644,8 @@ import { WordBankSentenceExerciseComponent } from './word-bank-sentence-exercise
       background: linear-gradient(90deg, var(--cedar-green, #1f5f43), #2f8b61);
     }
 
-    .course-content {
+    .course-content,
+    .exercise-section {
       display: grid;
       gap: 18px;
       margin-bottom: 24px;
@@ -645,6 +743,34 @@ import { WordBankSentenceExerciseComponent } from './word-bank-sentence-exercise
       margin: 0;
     }
 
+    .prompt-stack {
+      display: grid;
+      gap: 6px;
+    }
+
+    .prompt-instruction {
+      color: var(--text-muted, #65726a);
+      font-size: 18px;
+      font-weight: 900;
+      letter-spacing: -0.02em;
+    }
+
+    .prompt-instruction.lang-libanais {
+      color: var(--lb-red, #d62828);
+    }
+
+    .prompt-instruction.lang-francais {
+      color: var(--sea-blue, #4da8da);
+    }
+
+    .prompt-target {
+      color: var(--text-main, #1f2933);
+      font-size: clamp(36px, 5vw, 58px);
+      font-weight: 950;
+      line-height: 0.95;
+      letter-spacing: -0.055em;
+    }
+
     .options,
     .typed-answer {
       display: grid;
@@ -665,11 +791,8 @@ import { WordBankSentenceExerciseComponent } from './word-bank-sentence-exercise
       text-align: left;
       font-size: 15px;
       font-weight: 850;
-      transition:
-        background 0.14s ease,
-        border-color 0.14s ease,
-        transform 0.14s ease,
-        box-shadow 0.14s ease;
+      cursor: pointer;
+      transition: background 0.14s ease, border-color 0.14s ease, transform 0.14s ease, box-shadow 0.14s ease;
     }
 
     .option-letter {
@@ -704,6 +827,7 @@ import { WordBankSentenceExerciseComponent } from './word-bank-sentence-exercise
       color: white;
       background: #b00020;
       box-shadow: 0 8px 18px rgba(176, 0, 32, 0.18);
+      animation: shake 0.25s ease;
     }
 
     .option-button.correct-selected .option-letter,
@@ -717,6 +841,7 @@ import { WordBankSentenceExerciseComponent } from './word-bank-sentence-exercise
       color: #667064;
       background: #f4f1ea;
       border-color: #e7e1d6;
+      cursor: default;
     }
 
     .typed-answer input {
@@ -756,11 +881,118 @@ import { WordBankSentenceExerciseComponent } from './word-bank-sentence-exercise
       line-height: 1.45;
     }
 
+    .correct-answer-reveal {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      margin-bottom: 14px;
+      border-radius: 16px;
+      padding: 12px 14px;
+      background: rgba(255, 255, 255, 0.72);
+      font-weight: 850;
+    }
+
+    .correct-answer-reveal span {
+      color: var(--text-muted, #65726a);
+    }
+
+    .correct-answer-reveal strong {
+      color: #14532d;
+    }
+
+    .result-screen {
+      display: grid;
+      gap: 20px;
+    }
+
+    .result-top {
+      display: flex;
+      align-items: center;
+      gap: 20px;
+      flex-wrap: wrap;
+    }
+
+    .score-circle-wrap {
+      position: relative;
+      width: 120px;
+      height: 120px;
+      flex-shrink: 0;
+    }
+
+    .score-ring {
+      width: 120px;
+      height: 120px;
+      transform: rotate(-90deg);
+    }
+
+    .ring-track,
+    .ring-fill {
+      fill: none;
+      stroke-width: 8;
+    }
+
+    .ring-track {
+      stroke: #e8ded0;
+    }
+
+    .ring-fill {
+      stroke: var(--cedar-green, #1f5f43);
+      stroke-linecap: round;
+      stroke-dasharray: 251.3;
+      transition: stroke-dashoffset 1s ease;
+    }
+
+    .ring-perfect {
+      stroke: #f59e0b;
+    }
+
+    .score-overlay {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      display: grid;
+      gap: 2px;
+      text-align: center;
+      transform: translate(-50%, -50%);
+    }
+
+    .score-pct {
+      font-size: 24px;
+      font-weight: 950;
+      letter-spacing: -0.04em;
+    }
+
+    .score-sub {
+      color: var(--text-muted, #65726a);
+      font-size: 11px;
+      font-weight: 900;
+      text-transform: uppercase;
+    }
+
+    .xp-badge {
+      width: fit-content;
+      border-radius: 999px;
+      padding: 10px 16px;
+      background: #fff1c9;
+      color: #6f4c00;
+      font-weight: 950;
+      box-shadow: 0 8px 20px rgba(251, 191, 36, 0.22);
+    }
+
+    .hint {
+      margin: 0;
+      padding: 12px 14px;
+      border: 1px solid #f3e1a5;
+      border-radius: 16px;
+      background: #fff7df;
+      color: #6a5320;
+      font-weight: 800;
+    }
+
     .result-grid {
       display: grid;
       grid-template-columns: repeat(3, minmax(0, 1fr));
       gap: 14px;
-      margin-bottom: 20px;
     }
 
     .result-item {
@@ -784,20 +1016,126 @@ import { WordBankSentenceExerciseComponent } from './word-bank-sentence-exercise
       font-weight: 700;
     }
 
-    .hint {
-      margin: 0 0 18px;
-      border: 1px solid #f3e1a5;
-      border-radius: 16px;
-      padding: 12px 14px;
-      color: #6a5320;
-      background: #fff7df;
+    .wrong-section h3 {
+      margin: 0 0 12px;
+      font-size: 18px;
+    }
+
+    .wrong-list {
+      display: grid;
+      gap: 10px;
+    }
+
+    .wrong-card {
+      display: grid;
+      gap: 8px;
+      border: 1px solid #ffd0d0;
+      border-radius: 18px;
+      padding: 14px;
+      background: #fff4f4;
+    }
+
+    .wrong-prompt {
+      margin: 0;
+      font-weight: 900;
+    }
+
+    .wrong-line {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      font-size: 14px;
+      font-weight: 800;
+    }
+
+    .wrong-line span {
+      color: var(--text-muted, #65726a);
+    }
+
+    .wrong-value {
+      color: #b00020;
+    }
+
+    .correct-value {
+      color: #14532d;
+    }
+
+    .result-actions {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .next-lesson-button {
+      display: grid;
+      gap: 2px;
+      text-align: left;
+    }
+
+    .next-lesson-button small {
+      opacity: 0.85;
+      font-size: 11px;
       font-weight: 700;
+    }
+
+    .next-lesson-button span {
+      font-weight: 950;
+    }
+
+    @keyframes fadeIn {
+      from {
+        opacity: 0;
+        transform: translateY(10px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    @keyframes popIn {
+      0% {
+        opacity: 0;
+        transform: scale(0.72);
+      }
+      70% {
+        transform: scale(1.06);
+      }
+      100% {
+        opacity: 1;
+        transform: scale(1);
+      }
+    }
+
+    @keyframes spin {
+      to {
+        transform: rotate(360deg);
+      }
+    }
+
+    @keyframes shake {
+      0%, 100% {
+        transform: translateX(0);
+      }
+      25% {
+        transform: translateX(-4px);
+      }
+      75% {
+        transform: translateX(4px);
+      }
+    }
+
+    .fade-in {
+      animation: fadeIn 0.3s ease both;
+    }
+
+    .pop-in {
+      animation: popIn 0.45s cubic-bezier(0.34, 1.56, 0.64, 1) both;
     }
 
     @media (max-width: 900px) {
       .reading-hero,
-      .exercise-hero,
-      .result-hero {
+      .exercise-hero {
         grid-template-columns: 1fr;
       }
     }
@@ -814,6 +1152,10 @@ import { WordBankSentenceExerciseComponent } from './word-bank-sentence-exercise
       .result-grid {
         grid-template-columns: 1fr;
       }
+
+      .result-actions button {
+        width: 100%;
+      }
     }
   `]
 })
@@ -829,14 +1171,20 @@ export class LessonComponent implements OnInit {
   textAnswer = '';
   feedback = '';
   lastCorrect = false;
+  lastExpectedAnswer = '';
   selectedOptionId: number | null = null;
+  correctOptionId: number | null = null;
 
   loading = true;
   answering = false;
   readingMode = true;
+  transitioning = false;
   emptyLesson = false;
   completed = false;
-  result: any = null;
+  showFeedback = false;
+  showNextButton = false;
+  result: CompleteLessonLike = null as unknown as CompleteLessonLike;
+  nextLesson: NextLessonLike | null = null;
   errorMessage = '';
 
   constructor(
@@ -854,17 +1202,7 @@ export class LessonComponent implements OnInit {
     }
 
     this.lessonId = Number(this.route.snapshot.paramMap.get('id'));
-
-    this.api.getLessonContent(this.lessonId).subscribe({
-      next: contentBlocks => {
-        this.contentBlocks = contentBlocks;
-        this.loadExercises();
-      },
-      error: () => {
-        this.loading = false;
-        this.errorMessage = 'Impossible de charger le contenu de la leçon.';
-      }
-    });
+    this.loadLesson(this.lessonId);
   }
 
   get questionProgressPercent(): number {
@@ -977,6 +1315,68 @@ export class LessonComponent implements OnInit {
     return this.index === this.exercises.length - 1;
   }
 
+  get resultWrongAnswers(): number {
+    if (!this.result) {
+      return 0;
+    }
+
+    return this.result.wrongAnswers ?? Math.max(0, this.result.totalExercises - this.result.correctAnswers);
+  }
+
+  get wrongAnswerDetails(): WrongAnswerDetailLike[] {
+    return this.result?.wrongAnswerDetails ?? [];
+  }
+
+  get scoreCircleOffset(): number {
+    const circumference = 2 * Math.PI * 40;
+    const score = this.result?.scorePercent ?? 0;
+    return circumference * (1 - score / 100);
+  }
+
+  get nextLessonTitle(): string {
+    return this.nextLesson?.lessonTitle ?? this.nextLesson?.title ?? 'Leçon suivante';
+  }
+
+  private loadLesson(lessonId: number): void {
+    this.resetBeforeLoad();
+    this.lessonId = lessonId;
+
+    this.api.getLessonContent(this.lessonId).subscribe({
+      next: contentBlocks => {
+        this.contentBlocks = contentBlocks;
+        this.loadExercises();
+      },
+      error: () => {
+        this.loading = false;
+        this.errorMessage = 'Impossible de charger le contenu de la leçon.';
+      }
+    });
+  }
+
+  private resetBeforeLoad(): void {
+    this.contentBlocks = [];
+    this.exercises = [];
+    this.index = 0;
+    this.exercise = null;
+    this.textAnswer = '';
+    this.feedback = '';
+    this.lastCorrect = false;
+    this.lastExpectedAnswer = '';
+    this.selectedOptionId = null;
+    this.correctOptionId = null;
+    this.loading = true;
+    this.answering = false;
+    this.readingMode = true;
+    this.transitioning = false;
+    this.emptyLesson = false;
+    this.completed = false;
+    this.showFeedback = false;
+    this.showNextButton = false;
+    this.result = null as unknown as CompleteLessonLike;
+    this.nextLesson = null;
+    this.errorMessage = '';
+  }
+
   loadExercises(): void {
     this.api.getExercises(this.lessonId).subscribe({
       next: exercises => {
@@ -1003,9 +1403,33 @@ export class LessonComponent implements OnInit {
     });
   }
 
+  beginTransition(): void {
+  this.loading = false;
+  this.readingMode = false;
+  this.transitioning = true;
+
+  this.api.startLesson(this.lessonId).subscribe({
+    next: start => {
+      this.attemptId = start.attemptId;
+      this.exercise = this.exercises[this.index];
+
+      window.setTimeout(() => {
+        this.transitioning = false;
+        this.loading = false;
+      }, 250);
+    },
+    error: () => {
+      this.loading = false;
+      this.transitioning = false;
+      this.errorMessage = 'Impossible de démarrer la leçon.';
+    }
+  });
+}
+
   startExercises(): void {
     this.loading = true;
     this.readingMode = false;
+    this.transitioning = false;
 
     this.api.startLesson(this.lessonId).subscribe({
       next: start => {
@@ -1015,6 +1439,7 @@ export class LessonComponent implements OnInit {
       },
       error: () => {
         this.loading = false;
+        this.transitioning = false;
         this.errorMessage = 'Impossible de démarrer la leçon.';
       }
     });
@@ -1034,14 +1459,7 @@ export class LessonComponent implements OnInit {
 
         this.api.completeLesson(this.attemptId).subscribe({
           next: result => {
-            this.result = result;
-            this.completed = true;
-            this.readingMode = false;
-            this.exercise = null;
-            this.feedback = '';
-            this.answering = false;
-            this.loading = false;
-            this.soundService.playComplete();
+            this.setCompletedResult(result);
           },
           error: () => {
             this.answering = false;
@@ -1062,29 +1480,82 @@ export class LessonComponent implements OnInit {
     this.index++;
 
     if (this.index >= this.exercises.length) {
-      this.api.completeLesson(this.attemptId).subscribe({
-        next: result => {
-          this.result = result;
-          this.completed = true;
-          this.exercise = null;
-          this.feedback = '';
-          this.answering = false;
-          this.selectedOptionId = null;
-          this.soundService.playComplete();
-        },
-        error: () => {
-          this.answering = false;
-          this.errorMessage = 'Impossible de terminer la leçon.';
-        }
-      });
+      this.finishLesson();
       return;
     }
 
     this.exercise = this.exercises[this.index];
     this.feedback = '';
+    this.showFeedback = false;
+    this.showNextButton = false;
     this.textAnswer = '';
     this.selectedOptionId = null;
+    this.correctOptionId = null;
+    this.lastExpectedAnswer = '';
     this.answering = false;
+  }
+
+  nextExercise(): void {
+    this.next();
+  }
+
+  private finishLesson(): void {
+    this.api.completeLesson(this.attemptId).subscribe({
+      next: result => {
+        this.setCompletedResult(result);
+      },
+      error: () => {
+        this.answering = false;
+        this.errorMessage = 'Impossible de terminer la leçon.';
+      }
+    });
+  }
+
+  private setCompletedResult(result: CompleteLessonLike): void {
+    this.result = {
+      ...result,
+      wrongAnswers: result.wrongAnswers ?? Math.max(0, result.totalExercises - result.correctAnswers),
+      wrongAnswerDetails: result.wrongAnswerDetails ?? []
+    };
+
+    this.completed = true;
+    this.readingMode = false;
+    this.transitioning = false;
+    this.emptyLesson = false;
+    this.exercise = null;
+    this.feedback = '';
+    this.showFeedback = false;
+    this.showNextButton = false;
+    this.answering = false;
+    this.loading = false;
+    this.selectedOptionId = null;
+    this.correctOptionId = null;
+
+    this.soundService.playComplete();
+    this.loadNextLesson();
+  }
+
+  private loadNextLesson(): void {
+    const apiWithNextLesson = this.api as ApiService & {
+      getNextLesson?: (lessonId: number) => { subscribe: (observer: {
+        next: (nextLesson: NextLessonLike | null) => void;
+        error: () => void;
+      }) => void };
+    };
+
+    if (typeof apiWithNextLesson.getNextLesson !== 'function') {
+      this.nextLesson = null;
+      return;
+    }
+
+    apiWithNextLesson.getNextLesson(this.lessonId).subscribe({
+      next: nextLesson => {
+        this.nextLesson = nextLesson;
+      },
+      error: () => {
+        this.nextLesson = null;
+      }
+    });
   }
 
   answerMC(optionId: number): void {
@@ -1107,6 +1578,10 @@ export class LessonComponent implements OnInit {
     });
   }
 
+  selectOption(optionId: number): void {
+    this.answerMC(optionId);
+  }
+
   answerText(): void {
     if (this.answering || this.feedback || !this.textAnswer.trim()) {
       return;
@@ -1124,6 +1599,10 @@ export class LessonComponent implements OnInit {
         this.errorMessage = 'Impossible de valider la réponse.';
       }
     });
+  }
+
+  submitTypedAnswer(): void {
+    this.answerText();
   }
 
   answerMatchPairs(answer: string): void {
@@ -1145,6 +1624,10 @@ export class LessonComponent implements OnInit {
     });
   }
 
+  submitMatchPairs(answer: string): void {
+    this.answerMatchPairs(answer);
+  }
+
   answerWordBankSentence(answer: string): void {
     if (this.answering || this.feedback || !answer.trim()) {
       return;
@@ -1164,12 +1647,21 @@ export class LessonComponent implements OnInit {
     });
   }
 
+  submitWordBank(answer: string): void {
+    this.answerWordBankSentence(answer);
+  }
+
   handleAnswerResult(correct: boolean, expectedAnswer: string): void {
     this.lastCorrect = correct;
+    this.lastExpectedAnswer = expectedAnswer ?? '';
     this.feedback = correct
       ? 'Correct'
       : `Incorrect. Réponse attendue : ${expectedAnswer}`;
     this.answering = false;
+    this.showFeedback = true;
+    this.showNextButton = correct;
+
+    this.resolveCorrectOptionId(expectedAnswer);
 
     if (correct) {
       this.soundService.playCorrect();
@@ -1177,6 +1669,61 @@ export class LessonComponent implements OnInit {
     }
 
     this.soundService.playWrong();
+
+    window.setTimeout(() => {
+      this.showNextButton = true;
+    }, 900);
+  }
+
+  private resolveCorrectOptionId(expectedAnswer: string): void {
+    this.correctOptionId = null;
+
+    if (this.exercise?.type !== 'MULTIPLE_CHOICE') {
+      return;
+    }
+
+    const correctOption = (this.exercise.options ?? []).find((option: any) =>
+      option.correct === true || option.text === expectedAnswer
+    );
+
+    this.correctOptionId = correctOption?.id ?? null;
+  }
+
+  replayLesson(): void {
+    this.index = 0;
+    this.exercise = null;
+    this.attemptId = 0;
+    this.textAnswer = '';
+    this.feedback = '';
+    this.lastCorrect = false;
+    this.lastExpectedAnswer = '';
+    this.selectedOptionId = null;
+    this.correctOptionId = null;
+    this.answering = false;
+    this.completed = false;
+    this.showFeedback = false;
+    this.showNextButton = false;
+    this.result = null as unknown as CompleteLessonLike;
+    this.nextLesson = null;
+    this.errorMessage = '';
+    this.emptyLesson = false;
+    this.transitioning = false;
+
+    if (this.contentBlocks.length > 0) {
+      this.loading = false;
+      this.readingMode = true;
+      return;
+    }
+
+    this.startExercises();
+  }
+
+  goToNextLesson(): void {
+    if (!this.nextLesson) {
+      return;
+    }
+
+    this.router.navigate(['/lesson', this.nextLesson.lessonId]);
   }
 
   exerciseTypeLabel(type: string): string {

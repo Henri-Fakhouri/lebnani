@@ -4,6 +4,8 @@ import com.henri.lebnani.attempt.AnswerNormalizer;
 import com.henri.lebnani.attempt.ExerciseAttempt;
 import com.henri.lebnani.common.BusinessException;
 import com.henri.lebnani.exercise.Exercise;
+import com.henri.lebnani.progress.XpEvent;
+import com.henri.lebnani.progress.XpEventRepository;
 import com.henri.lebnani.user.User;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -14,15 +16,21 @@ import java.util.List;
 @Service
 public class ReviewService {
 
+    private static final int REVIEW_XP_AMOUNT = 2;
+    private static final int DIFFICULT_FAILURE_THRESHOLD = 3;
+
     private final ReviewItemRepository reviewItemRepository;
     private final AnswerNormalizer answerNormalizer;
+    private final XpEventRepository xpEventRepository;
 
     public ReviewService(
             ReviewItemRepository reviewItemRepository,
-            AnswerNormalizer answerNormalizer
+            AnswerNormalizer answerNormalizer,
+            XpEventRepository xpEventRepository
     ) {
         this.reviewItemRepository = reviewItemRepository;
         this.answerNormalizer = answerNormalizer;
+        this.xpEventRepository = xpEventRepository;
     }
 
     @Transactional
@@ -40,14 +48,33 @@ public class ReviewService {
         reviewItemRepository.save(reviewItem);
     }
 
+    /** Overload used by existing tests – fetches all due items with no unit filter. */
     @Transactional(readOnly = true)
     public List<ReviewItemResponse> getDueReviewItems(User user) {
+        return getDueReviewItems(user, null);
+    }
+
+    @Transactional(readOnly = true)
+    public List<ReviewItemResponse> getDueReviewItems(User user, Long unitId) {
+        List<ReviewItem> items;
+
+        if (unitId != null) {
+            items = reviewItemRepository
+                    .findByUserIdAndStatusAndNextReviewAtLessThanEqualAndUnitIdOrderByNextReviewAtAsc(
+                            user.getId(), ReviewItemStatus.DUE, Instant.now(), unitId);
+        } else {
+            items = reviewItemRepository
+                    .findByUserIdAndStatusAndNextReviewAtLessThanEqualOrderByNextReviewAtAsc(
+                            user.getId(), ReviewItemStatus.DUE, Instant.now());
+        }
+
+        return items.stream().map(ReviewItemResponse::new).toList();
+    }
+
+    @Transactional(readOnly = true)
+    public List<ReviewItemResponse> getDifficultItems(User user) {
         return reviewItemRepository
-                .findByUserIdAndStatusAndNextReviewAtLessThanEqualOrderByNextReviewAtAsc(
-                        user.getId(),
-                        ReviewItemStatus.DUE,
-                        Instant.now()
-                )
+                .findDifficultByUserId(user.getId(), DIFFICULT_FAILURE_THRESHOLD)
                 .stream()
                 .map(ReviewItemResponse::new)
                 .toList();
@@ -71,12 +98,21 @@ public class ReviewService {
         String submittedAnswer = request.getAnswer();
         String normalizedAnswer = answerNormalizer.normalize(submittedAnswer);
         String expectedAnswer = exercise.getCorrectAnswer();
-        String normalizedExpectedAnswer = answerNormalizer.normalize(expectedAnswer);
-
-        boolean correct = normalizedAnswer.equals(normalizedExpectedAnswer);
+        boolean correct = normalizedAnswer.equals(answerNormalizer.normalize(expectedAnswer));
 
         reviewItem.registerReviewAnswer(correct);
         reviewItemRepository.save(reviewItem);
+
+        int xpAwarded = 0;
+
+        if (correct) {
+            XpEvent xpEvent = new XpEvent();
+            xpEvent.setUser(user);
+            xpEvent.setAmount(REVIEW_XP_AMOUNT);
+            xpEvent.setReason("REVIEW_CORRECT");
+            xpEventRepository.save(xpEvent);
+            xpAwarded = REVIEW_XP_AMOUNT;
+        }
 
         return new ReviewAnswerResponse(
                 reviewItem.getId(),
@@ -88,7 +124,8 @@ public class ReviewService {
                 reviewItem.getStatus().name(),
                 reviewItem.getFailureCount(),
                 reviewItem.getSuccessCount(),
-                reviewItem.getNextReviewAt()
+                reviewItem.getNextReviewAt(),
+                xpAwarded
         );
     }
 }

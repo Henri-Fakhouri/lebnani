@@ -3,8 +3,13 @@ package com.henri.lebnani.review;
 import com.henri.lebnani.attempt.AnswerNormalizer;
 import com.henri.lebnani.attempt.ExerciseAttempt;
 import com.henri.lebnani.common.BusinessException;
+import com.henri.lebnani.course.Course;
+import com.henri.lebnani.course.CourseUnit;
+import com.henri.lebnani.course.Lesson;
 import com.henri.lebnani.exercise.Exercise;
 import com.henri.lebnani.exercise.ExerciseType;
+import com.henri.lebnani.progress.XpEvent;
+import com.henri.lebnani.progress.XpEventRepository;
 import com.henri.lebnani.user.User;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -21,6 +26,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -30,6 +36,8 @@ class ReviewServiceTest {
 
     @Mock ReviewItemRepository reviewItemRepository;
     @Mock AnswerNormalizer answerNormalizer;
+    @Mock XpEventRepository xpEventRepository;
+
     @InjectMocks ReviewService reviewService;
 
     // ── registerWrongAnswer ──────────────────────────────────────────────────
@@ -40,8 +48,10 @@ class ReviewServiceTest {
         Exercise exercise = buildExercise(10L, "Correct answer");
         ExerciseAttempt attempt = new ExerciseAttempt();
 
-        when(reviewItemRepository.findByUserIdAndExerciseId(1L, 10L)).thenReturn(Optional.empty());
-        when(reviewItemRepository.save(any(ReviewItem.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(reviewItemRepository.findByUserIdAndExerciseId(1L, 10L))
+                .thenReturn(Optional.empty());
+        when(reviewItemRepository.save(any(ReviewItem.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
 
         reviewService.registerWrongAnswer(user, exercise, attempt);
 
@@ -49,6 +59,7 @@ class ReviewServiceTest {
         verify(reviewItemRepository).save(captor.capture());
 
         ReviewItem saved = captor.getValue();
+
         assertThat(saved.getUser()).isEqualTo(user);
         assertThat(saved.getExercise()).isEqualTo(exercise);
         assertThat(saved.getSourceExerciseAttempt()).isEqualTo(attempt);
@@ -71,8 +82,10 @@ class ReviewServiceTest {
         setId(existing, 5L);
         existing.createForWrongAnswer(user, exercise, firstAttempt);
 
-        when(reviewItemRepository.findByUserIdAndExerciseId(1L, 10L)).thenReturn(Optional.of(existing));
-        when(reviewItemRepository.save(any(ReviewItem.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(reviewItemRepository.findByUserIdAndExerciseId(1L, 10L))
+                .thenReturn(Optional.of(existing));
+        when(reviewItemRepository.save(any(ReviewItem.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
 
         reviewService.registerWrongAnswer(user, exercise, secondAttempt);
 
@@ -89,9 +102,13 @@ class ReviewServiceTest {
     @Test
     void getDueReviewItems_returns_empty_when_none_due() {
         User user = buildUser(1L);
+
         when(reviewItemRepository
                 .findByUserIdAndStatusAndNextReviewAtLessThanEqualOrderByNextReviewAtAsc(
-                        eq(1L), eq(ReviewItemStatus.DUE), any(Instant.class)))
+                        eq(1L),
+                        eq(ReviewItemStatus.DUE),
+                        any(Instant.class)
+                ))
                 .thenReturn(List.of());
 
         List<ReviewItemResponse> result = reviewService.getDueReviewItems(user);
@@ -110,27 +127,35 @@ class ReviewServiceTest {
 
         when(reviewItemRepository
                 .findByUserIdAndStatusAndNextReviewAtLessThanEqualOrderByNextReviewAtAsc(
-                        eq(1L), eq(ReviewItemStatus.DUE), any(Instant.class)))
+                        eq(1L),
+                        eq(ReviewItemStatus.DUE),
+                        any(Instant.class)
+                ))
                 .thenReturn(List.of(item));
 
         List<ReviewItemResponse> result = reviewService.getDueReviewItems(user);
 
         assertThat(result).hasSize(1);
-        assertThat(result.get(0).getId()).isEqualTo(5L);
-        assertThat(result.get(0).getExerciseId()).isEqualTo(10L);
-        assertThat(result.get(0).getExerciseType()).isEqualTo("TYPE_ANSWER");
-        assertThat(result.get(0).getPromptFr()).isEqualTo("Prompt");
-        assertThat(result.get(0).getOptions()).isEmpty();
-        assertThat(result.get(0).getStatus()).isEqualTo("DUE");
-        assertThat(result.get(0).getFailureCount()).isEqualTo(1);
-        assertThat(result.get(0).getSuccessCount()).isZero();
-        assertThat(result.get(0).getNextReviewAt()).isNotNull();
+
+        ReviewItemResponse response = result.get(0);
+
+        assertThat(response.getId()).isEqualTo(5L);
+        assertThat(response.getExerciseId()).isEqualTo(10L);
+        assertThat(response.getExerciseType()).isEqualTo("TYPE_ANSWER");
+        assertThat(response.getPromptFr()).isEqualTo("Prompt");
+        assertThat(response.getOptions()).isEmpty();
+        assertThat(response.getStatus()).isEqualTo("DUE");
+        assertThat(response.getFailureCount()).isEqualTo(1);
+        assertThat(response.getSuccessCount()).isZero();
+        assertThat(response.getNextReviewAt()).isNotNull();
+        assertThat(response.getUnitId()).isEqualTo(100L);
+        assertThat(response.getUnitTitle()).isEqualTo("Unit 1");
     }
 
     // ── answerReviewItem ─────────────────────────────────────────────────────
 
     @Test
-    void answerReviewItem_correct_answer_returns_response_and_schedules_item() {
+    void answerReviewItem_correct_answer_returns_response_schedules_item_and_awards_xp() {
         User user = buildUser(1L);
         Exercise exercise = buildExercise(10L, "baddi rou7");
 
@@ -140,10 +165,16 @@ class ReviewServiceTest {
 
         ReviewAnswerRequest request = buildReviewAnswerRequest("Baddi Rou7");
 
-        when(reviewItemRepository.findByIdWithExercise(5L)).thenReturn(Optional.of(item));
-        when(answerNormalizer.normalize("Baddi Rou7")).thenReturn("baddi rou7");
-        when(answerNormalizer.normalize("baddi rou7")).thenReturn("baddi rou7");
-        when(reviewItemRepository.save(any(ReviewItem.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(reviewItemRepository.findByIdWithExercise(5L))
+                .thenReturn(Optional.of(item));
+        when(answerNormalizer.normalize("Baddi Rou7"))
+                .thenReturn("baddi rou7");
+        when(answerNormalizer.normalize("baddi rou7"))
+                .thenReturn("baddi rou7");
+        when(reviewItemRepository.save(any(ReviewItem.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+        when(xpEventRepository.save(any(XpEvent.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
 
         ReviewAnswerResponse response = reviewService.answerReviewItem(5L, request, user);
 
@@ -159,10 +190,11 @@ class ReviewServiceTest {
         assertThat(response.nextReviewAt()).isNotNull();
 
         verify(reviewItemRepository).save(item);
+        verify(xpEventRepository).save(any(XpEvent.class));
     }
 
     @Test
-    void answerReviewItem_wrong_answer_returns_response_and_keeps_item_due() {
+    void answerReviewItem_wrong_answer_returns_response_keeps_item_due_and_does_not_award_xp() {
         User user = buildUser(1L);
         Exercise exercise = buildExercise(10L, "baddi rou7");
 
@@ -172,10 +204,14 @@ class ReviewServiceTest {
 
         ReviewAnswerRequest request = buildReviewAnswerRequest("wrong");
 
-        when(reviewItemRepository.findByIdWithExercise(5L)).thenReturn(Optional.of(item));
-        when(answerNormalizer.normalize("wrong")).thenReturn("wrong");
-        when(answerNormalizer.normalize("baddi rou7")).thenReturn("baddi rou7");
-        when(reviewItemRepository.save(any(ReviewItem.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(reviewItemRepository.findByIdWithExercise(5L))
+                .thenReturn(Optional.of(item));
+        when(answerNormalizer.normalize("wrong"))
+                .thenReturn("wrong");
+        when(answerNormalizer.normalize("baddi rou7"))
+                .thenReturn("baddi rou7");
+        when(reviewItemRepository.save(any(ReviewItem.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
 
         ReviewAnswerResponse response = reviewService.answerReviewItem(5L, request, user);
 
@@ -191,6 +227,7 @@ class ReviewServiceTest {
         assertThat(response.nextReviewAt()).isNotNull();
 
         verify(reviewItemRepository).save(item);
+        verify(xpEventRepository, never()).save(any(XpEvent.class));
     }
 
     @Test
@@ -198,7 +235,8 @@ class ReviewServiceTest {
         User user = buildUser(1L);
         ReviewAnswerRequest request = buildReviewAnswerRequest("answer");
 
-        when(reviewItemRepository.findByIdWithExercise(99L)).thenReturn(Optional.empty());
+        when(reviewItemRepository.findByIdWithExercise(99L))
+                .thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> reviewService.answerReviewItem(99L, request, user))
                 .isInstanceOf(BusinessException.class)
@@ -217,7 +255,8 @@ class ReviewServiceTest {
 
         ReviewAnswerRequest request = buildReviewAnswerRequest("answer");
 
-        when(reviewItemRepository.findByIdWithExercise(5L)).thenReturn(Optional.of(item));
+        when(reviewItemRepository.findByIdWithExercise(5L))
+                .thenReturn(Optional.of(item));
 
         assertThatThrownBy(() -> reviewService.answerReviewItem(5L, request, other))
                 .isInstanceOf(BusinessException.class)
@@ -238,7 +277,8 @@ class ReviewServiceTest {
 
         ReviewAnswerRequest request = buildReviewAnswerRequest("answer");
 
-        when(reviewItemRepository.findByIdWithExercise(5L)).thenReturn(Optional.of(item));
+        when(reviewItemRepository.findByIdWithExercise(5L))
+                .thenReturn(Optional.of(item));
 
         assertThatThrownBy(() -> reviewService.answerReviewItem(5L, request, user))
                 .isInstanceOf(BusinessException.class)
@@ -254,13 +294,35 @@ class ReviewServiceTest {
     }
 
     private Exercise buildExercise(Long id, String correctAnswer) {
+        Course course = new Course();
+        setId(course, 1L);
+        course.setTitle("Course 1");
+
+        CourseUnit unit = new CourseUnit();
+        setId(unit, 100L);
+        unit.setCourse(course);
+        unit.setTitle("Unit 1");
+        unit.setDescription("Unit description");
+        unit.setDisplayOrder(1);
+        unit.setPublished(true);
+
+        Lesson lesson = new Lesson();
+        setId(lesson, 200L);
+        lesson.setUnit(unit);
+        lesson.setTitle("Lesson 1");
+        lesson.setDescription("Lesson description");
+        lesson.setDisplayOrder(1);
+        lesson.setPublished(true);
+
         Exercise exercise = new Exercise();
         setId(exercise, id);
+        exercise.setLesson(lesson);
         exercise.setType(ExerciseType.TYPE_ANSWER);
         exercise.setPromptFr("Prompt");
         exercise.setCorrectAnswer(correctAnswer);
         exercise.setDisplayOrder(1);
         exercise.setPublished(true);
+
         return exercise;
     }
 

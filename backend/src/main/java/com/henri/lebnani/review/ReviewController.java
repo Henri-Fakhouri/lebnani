@@ -17,9 +17,22 @@ public class ReviewController {
         this.reviewService = reviewService;
     }
 
-    @GetMapping("/review-queue")
+    /** Overload used by existing tests – no unit filter. */
     public List<ReviewItemResponse> getReviewQueue(@AuthenticationPrincipal User user) {
         return reviewService.getDueReviewItems(user);
+    }
+
+    @GetMapping("/review-queue")
+    public List<ReviewItemResponse> getReviewQueue(
+            @RequestParam(required = false) Long unitId,
+            @AuthenticationPrincipal User user
+    ) {
+        return reviewService.getDueReviewItems(user, unitId);
+    }
+
+    @GetMapping("/difficult-items")
+    public List<ReviewItemResponse> getDifficultItems(@AuthenticationPrincipal User user) {
+        return reviewService.getDifficultItems(user);
     }
 
     @PostMapping("/review-items/{reviewItemId}/answer")

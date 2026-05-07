@@ -11,6 +11,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Comparator;
+import java.util.List;
 import java.util.Objects;
 import java.util.stream.Collectors;
 
@@ -116,24 +117,76 @@ public class LessonAttemptService {
                 validationResult.expectedAnswer());
     }
 
+    @Transactional
+    public CompleteLessonAttemptResponse completeAttempt(Long attemptId, User user) {
+        LessonAttempt attempt = lessonAttemptRepository.findById(Objects.requireNonNull(attemptId))
+                .orElseThrow(() -> new BusinessException("ATTEMPT_NOT_FOUND", "Lesson attempt not found."));
+
+        if (!attempt.getUser().getId().equals(user.getId())) {
+            throw new BusinessException("ATTEMPT_FORBIDDEN", "This lesson attempt does not belong to you.");
+        }
+
+        if (attempt.getStatus() != LessonAttemptStatus.IN_PROGRESS) {
+            throw new BusinessException("ATTEMPT_NOT_IN_PROGRESS", "This lesson attempt is not in progress.");
+        }
+
+        long totalExercises = exerciseRepository.countByLessonIdAndPublishedTrue(
+                attempt.getLesson().getId());
+
+        long answeredExercises = exerciseAttemptRepository.countByLessonAttemptId(attempt.getId());
+
+        if (answeredExercises < totalExercises) {
+            throw new BusinessException(
+                    "LESSON_NOT_FULLY_ANSWERED",
+                    "You must answer all lesson exercises before completing the lesson.");
+        }
+
+        long correctAnswers = exerciseAttemptRepository.countByLessonAttemptIdAndCorrectTrue(attempt.getId());
+
+        int scorePercent = totalExercises == 0
+                ? 100
+                : (int) Math.round((correctAnswers * 100.0) / totalExercises);
+
+        attempt.markCompleted();
+
+        int xpAwarded = progressService.applyLessonCompletion(user, attempt, scorePercent);
+
+        List<ExerciseAttempt> wrongAttempts = exerciseAttemptRepository
+                .findByLessonAttemptIdAndCorrectFalse(attempt.getId());
+
+        List<CompleteLessonAttemptResponse.WrongAnswerDetail> wrongAnswerDetails = wrongAttempts.stream()
+                .map(ea -> new CompleteLessonAttemptResponse.WrongAnswerDetail(
+                        ea.getExercise().getPromptFr(),
+                        ea.getSubmittedAnswer(),
+                        ea.getExercise().getCorrectAnswer()))
+                .toList();
+
+        return new CompleteLessonAttemptResponse(
+                attempt.getId(),
+                attempt.getLesson().getId(),
+                attempt.getStatus().name(),
+                totalExercises,
+                answeredExercises,
+                correctAnswers,
+                xpAwarded,
+                wrongAnswerDetails);
+    }
+
+    // ── Private validation helpers ──────────────────────────────────────────
+
     private AnswerValidationResult validateAnswer(Exercise exercise, AnswerSubmissionRequest request) {
-        if (exercise.getType() == ExerciseType.MULTIPLE_CHOICE) {
-            return validateMultipleChoiceAnswer(exercise, request);
+        ExerciseType exerciseType = exercise.getType();
+
+        if (exerciseType == null) {
+            throw new BusinessException("UNSUPPORTED_EXERCISE_TYPE", "Unsupported exercise type.");
         }
 
-        if (exercise.getType() == ExerciseType.TYPE_ANSWER) {
-            return validateTypedAnswer(exercise, request);
-        }
-
-        if (exercise.getType() == ExerciseType.MATCH_PAIRS) {
-            return validateMatchPairsAnswer(exercise, request);
-        }
-
-        if (exercise.getType() == ExerciseType.WORD_BANK_SENTENCE) {
-            return validateWordBankSentenceAnswer(exercise, request);
-        }
-
-        throw new BusinessException("UNSUPPORTED_EXERCISE_TYPE", "Unsupported exercise type.");
+        return switch (exerciseType) {
+            case MULTIPLE_CHOICE -> validateMultipleChoiceAnswer(exercise, request);
+            case TYPE_ANSWER -> validateTypedAnswer(exercise, request);
+            case MATCH_PAIRS -> validateMatchPairsAnswer(exercise, request);
+            case WORD_BANK_SENTENCE -> validateWordBankSentenceAnswer(exercise, request);
+        };
     }
 
     private AnswerValidationResult validateMultipleChoiceAnswer(Exercise exercise, AnswerSubmissionRequest request) {
@@ -167,23 +220,19 @@ public class LessonAttemptService {
         String normalizedAnswer = answerNormalizer.normalize(submittedAnswer);
         String expectedAnswer = exercise.getCorrectAnswer();
 
-        boolean correct = exercise.getAcceptedAnswers()
-                .stream()
-                .map(ExerciseAcceptedAnswer::getAnswerText)
-                .map(answerNormalizer::normalize)
-                .anyMatch(normalizedAnswer::equals);
+        boolean correct;
 
         if (exercise.getAcceptedAnswers().isEmpty()) {
-            String normalizedExpectedAnswer = answerNormalizer.normalize(expectedAnswer);
-            correct = normalizedAnswer.equals(normalizedExpectedAnswer);
+            correct = normalizedAnswer.equals(answerNormalizer.normalize(expectedAnswer));
+        } else {
+            correct = exercise.getAcceptedAnswers()
+                    .stream()
+                    .map(ExerciseAcceptedAnswer::getAnswerText)
+                    .map(answerNormalizer::normalize)
+                    .anyMatch(normalizedAnswer::equals);
         }
 
-        return new AnswerValidationResult(
-                submittedAnswer,
-                normalizedAnswer,
-                null,
-                correct,
-                expectedAnswer);
+        return new AnswerValidationResult(submittedAnswer, normalizedAnswer, null, correct, expectedAnswer);
     }
 
     private AnswerValidationResult validateMatchPairsAnswer(Exercise exercise, AnswerSubmissionRequest request) {
@@ -193,23 +242,18 @@ public class LessonAttemptService {
 
         String submittedAnswer = request.getAnswer();
         String expectedAnswer = resolveMatchPairsExpectedAnswer(exercise);
-
         String normalizedAnswer = normalizePairSignature(submittedAnswer);
         String normalizedExpectedAnswer = normalizePairSignature(expectedAnswer);
 
         return new AnswerValidationResult(
-                submittedAnswer,
-                normalizedAnswer,
-                null,
-                normalizedAnswer.equals(normalizedExpectedAnswer),
-                expectedAnswer);
+                submittedAnswer, normalizedAnswer, null,
+                normalizedAnswer.equals(normalizedExpectedAnswer), expectedAnswer);
     }
 
     private String resolveMatchPairsExpectedAnswer(Exercise exercise) {
         if (exercise.getCorrectAnswer() != null && !exercise.getCorrectAnswer().isBlank()) {
             return exercise.getCorrectAnswer();
         }
-
         return exercise.getOptions()
                 .stream()
                 .sorted(Comparator.comparingInt(ExerciseOption::getDisplayOrder))
@@ -229,15 +273,10 @@ public class LessonAttemptService {
 
     private String normalizePair(String rawPair) {
         String[] parts = rawPair.split("=>", 2);
-
         if (parts.length != 2) {
             return answerNormalizer.normalize(rawPair);
         }
-
-        String left = answerNormalizer.normalize(parts[0]);
-        String right = answerNormalizer.normalize(parts[1]);
-
-        return left + "=>" + right;
+        return answerNormalizer.normalize(parts[0]) + "=>" + answerNormalizer.normalize(parts[1]);
     }
 
     private AnswerValidationResult validateWordBankSentenceAnswer(Exercise exercise, AnswerSubmissionRequest request) {
@@ -252,58 +291,10 @@ public class LessonAttemptService {
         String submittedAnswer = request.getAnswer();
         String normalizedAnswer = answerNormalizer.normalize(submittedAnswer);
         String expectedAnswer = exercise.getCorrectAnswer();
-        String normalizedExpectedAnswer = answerNormalizer.normalize(expectedAnswer);
 
         return new AnswerValidationResult(
-                submittedAnswer,
-                normalizedAnswer,
-                null,
-                normalizedAnswer.equals(normalizedExpectedAnswer),
-                expectedAnswer);
-    }
-
-    @Transactional
-    public CompleteLessonAttemptResponse completeAttempt(Long attemptId, User user) {
-        LessonAttempt attempt = lessonAttemptRepository.findById(Objects.requireNonNull(attemptId))
-                .orElseThrow(() -> new BusinessException("ATTEMPT_NOT_FOUND", "Lesson attempt not found."));
-
-        if (!attempt.getUser().getId().equals(user.getId())) {
-            throw new BusinessException("ATTEMPT_FORBIDDEN", "This lesson attempt does not belong to you.");
-        }
-
-        if (attempt.getStatus() != LessonAttemptStatus.IN_PROGRESS) {
-            throw new BusinessException("ATTEMPT_NOT_IN_PROGRESS", "This lesson attempt is not in progress.");
-        }
-
-        long totalExercises = exerciseRepository.countByLessonIdAndPublishedTrue(
-                attempt.getLesson().getId());
-
-        long answeredExercises = exerciseAttemptRepository.countByLessonAttemptId(attempt.getId());
-
-        if (answeredExercises < totalExercises) {
-            throw new BusinessException(
-                    "LESSON_NOT_FULLY_ANSWERED",
-                    "You must answer all lesson exercises before completing the lesson.");
-        }
-
-        long correctAnswers = exerciseAttemptRepository.countByLessonAttemptIdAndCorrectTrue(attempt.getId());
-        
-        int scorePercent = totalExercises == 0
-                ? 100
-                : (int) Math.round((correctAnswers * 100.0) / totalExercises);
-
-        attempt.markCompleted();
-
-        int xpAwarded = progressService.applyLessonCompletion(user, attempt, scorePercent);
-
-        return new CompleteLessonAttemptResponse(
-                attempt.getId(),
-                attempt.getLesson().getId(),
-                attempt.getStatus().name(),
-                totalExercises,
-                answeredExercises,
-                correctAnswers,
-                xpAwarded);
+                submittedAnswer, normalizedAnswer, null,
+                normalizedAnswer.equals(answerNormalizer.normalize(expectedAnswer)), expectedAnswer);
     }
 
     private record AnswerValidationResult(

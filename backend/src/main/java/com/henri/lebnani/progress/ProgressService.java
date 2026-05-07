@@ -1,6 +1,7 @@
 package com.henri.lebnani.progress;
 
 import java.time.LocalDate;
+import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
@@ -111,19 +112,11 @@ public class ProgressService {
         int totalXp = xpEventRepository.sumXpByUserId(user.getId());
         long completedLessons = userLessonProgressRepository.countByUserIdAndCompletedTrue(user.getId());
 
-        StreakState streakState = streakStateRepository
-                .findByUserId(user.getId())
-                .orElse(null);
-
+        StreakState streakState = streakStateRepository.findByUserId(user.getId()).orElse(null);
         int currentStreak = streakState == null ? 0 : streakState.getCurrentStreak();
         int longestStreak = streakState == null ? 0 : streakState.getLongestStreak();
 
-        return new UserProgressResponse(
-                totalXp,
-                completedLessons,
-                currentStreak,
-                longestStreak
-        );
+        return new UserProgressResponse(totalXp, completedLessons, currentStreak, longestStreak);
     }
 
     @Transactional(readOnly = true)
@@ -131,77 +124,71 @@ public class ProgressService {
         Course course = courseRepository.findById(Objects.requireNonNull(courseId))
                 .orElseThrow(() -> new BusinessException("COURSE_NOT_FOUND", "Course not found."));
 
-        List<CourseUnit> units = courseUnitRepository.findByCourseIdAndPublishedTrueOrderByDisplayOrderAsc(courseId);
+        List<CourseUnit> units = courseUnitRepository
+                .findByCourseIdAndPublishedTrueOrderByDisplayOrderAsc(courseId);
         List<Lesson> lessons = lessonRepository
                 .findByUnitCourseIdAndPublishedTrueOrderByUnitDisplayOrderAscDisplayOrderAsc(courseId);
 
         Map<Long, UserLessonProgress> progressByLessonId = userLessonProgressRepository.findByUserId(user.getId())
                 .stream()
-                .collect(Collectors.toMap(
-                        progress -> progress.getLesson().getId(),
-                        progress -> progress
-                ));
+                .collect(Collectors.toMap(p -> p.getLesson().getId(), p -> p));
 
         Map<Long, List<Lesson>> lessonsByUnitId = lessons.stream()
                 .collect(Collectors.groupingBy(lesson -> lesson.getUnit().getId()));
 
-        List<UnitProgressResponse> unitResponses = units.stream()
-                .map(unit -> {
-                    List<Lesson> unitLessons = lessonsByUnitId.getOrDefault(unit.getId(), List.of())
-                            .stream()
-                            .sorted(Comparator.comparingInt(Lesson::getDisplayOrder))
-                            .toList();
+        // Build unit responses while computing locked state from previous unit's completion
+        List<UnitProgressResponse> unitResponses = new ArrayList<>();
+        UnitProgressResponse previousUnit = null;
 
-                    List<LessonProgressResponse> lessonResponses = unitLessons.stream()
-                            .map(lesson -> {
-                                UserLessonProgress lessonProgress = progressByLessonId.get(lesson.getId());
+        for (CourseUnit unit : units) {
+            List<Lesson> unitLessons = lessonsByUnitId.getOrDefault(unit.getId(), List.of())
+                    .stream()
+                    .sorted(Comparator.comparingInt(Lesson::getDisplayOrder))
+                    .toList();
 
-                                boolean completed = lessonProgress != null && lessonProgress.isCompleted();
-                                int bestScorePercent = lessonProgress == null
-                                        ? 0
-                                        : lessonProgress.getBestScorePercent();
+            List<LessonProgressResponse> lessonResponses = unitLessons.stream()
+                    .map(lesson -> {
+                        UserLessonProgress lp = progressByLessonId.get(lesson.getId());
+                        boolean completed = lp != null && lp.isCompleted();
+                        int bestScorePercent = lp == null ? 0 : lp.getBestScorePercent();
+                        int contentBlockCount = (int) lessonContentBlockRepository.countByLessonId(lesson.getId());
+                        int exerciseCount = (int) exerciseRepository.countByLessonIdAndPublishedTrue(lesson.getId());
 
-                                int contentBlockCount = (int) lessonContentBlockRepository.countByLessonId(lesson.getId());
-                                int exerciseCount = (int) exerciseRepository.countByLessonIdAndPublishedTrue(lesson.getId());
+                        return new LessonProgressResponse(
+                                lesson.getId(),
+                                lesson.getTitle(),
+                                lesson.getDisplayOrder(),
+                                completed,
+                                bestScorePercent,
+                                contentBlockCount,
+                                exerciseCount);
+                    })
+                    .toList();
 
-                                return new LessonProgressResponse(
-                                        lesson.getId(),
-                                        lesson.getTitle(),
-                                        lesson.getDisplayOrder(),
-                                        completed,
-                                        bestScorePercent,
-                                        contentBlockCount,
-                                        exerciseCount
-                                );
-                            })
-                            .toList();
+            int completedCount = (int) lessonResponses.stream()
+                    .filter(LessonProgressResponse::isCompleted).count();
 
-                    int completedLessons = (int) lessonResponses.stream()
-                            .filter(LessonProgressResponse::isCompleted)
-                            .count();
+            // First unit is never locked; subsequent units lock if previous unit is incomplete
+            boolean locked = previousUnit != null && previousUnit.getCompletionPercent() < 100;
 
-                    return new UnitProgressResponse(
-                            unit.getId(),
-                            unit.getTitle(),
-                            unit.getDisplayOrder(),
-                            lessonResponses.size(),
-                            completedLessons,
-                            lessonResponses
-                    );
-                })
-                .toList();
+            UnitProgressResponse unitResponse = new UnitProgressResponse(
+                    unit.getId(),
+                    unit.getTitle(),
+                    unit.getDisplayOrder(),
+                    lessonResponses.size(),
+                    completedCount,
+                    locked,
+                    lessonResponses);
+
+            unitResponses.add(unitResponse);
+            previousUnit = unitResponse;
+        }
 
         int totalLessons = lessons.size();
         int completedLessons = (int) unitResponses.stream()
-                .mapToLong(UnitProgressResponse::getCompletedLessons)
-                .sum();
+                .mapToLong(UnitProgressResponse::getCompletedLessons).sum();
 
         return new CourseProgressResponse(
-                course.getId(),
-                course.getTitle(),
-                totalLessons,
-                completedLessons,
-                unitResponses
-        );
+                course.getId(), course.getTitle(), totalLessons, completedLessons, unitResponses);
     }
 }
