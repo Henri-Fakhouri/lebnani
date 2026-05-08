@@ -390,26 +390,34 @@ export class LessonComponent implements OnInit, OnDestroy {
       return;
     }
 
-    this.routeSubscription = this.route.paramMap.subscribe(params => {
-      const nextLessonId = Number.parseInt(params.get('id') ?? '0', 10);
+    if (this.route.paramMap) {
+      this.routeSubscription = this.route.paramMap.subscribe(params => {
+        this.loadLessonFromRouteId(Number.parseInt(params.get('id') ?? '0', 10));
+      });
+      return;
+    }
 
-      if (!Number.isFinite(nextLessonId) || nextLessonId <= 0) {
-        this.resetLessonStateForLoad();
-        this.loading = false;
-        this.errorMessage = 'Leçon introuvable.';
-        return;
-      }
-
-      this.lessonId = nextLessonId;
-      this.resetLessonStateForLoad();
-      this.loadLesson();
-    });
+    this.loadLessonFromRouteId(Number.parseInt(this.route.snapshot.paramMap.get('id') ?? '0', 10));
   }
 
   ngOnDestroy(): void {
     this.routeSubscription?.unsubscribe();
     this.clearTimers();
   }
+
+  private loadLessonFromRouteId(nextLessonId: number): void {
+    if (!Number.isFinite(nextLessonId) || nextLessonId <= 0) {
+      this.resetLessonStateForLoad();
+      this.loading = false;
+      this.errorMessage = 'Leçon introuvable.';
+      return;
+    }
+
+    this.lessonId = nextLessonId;
+    this.resetLessonStateForLoad();
+    this.loadLesson();
+  }
+
 
   get questionProgressPercent(): number {
     if (this.exercises.length === 0) {
