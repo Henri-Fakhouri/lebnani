@@ -7,7 +7,8 @@
     "build": "ng build",
     "watch": "ng build --watch --configuration development",
     "test": "ng test",
-    "test:coverage": "ng test --watch=false --coverage --coverage-reporters=html --coverage-reporters=lcov --coverage-reporters=text-summary"
+    "test:coverage": "ng test --watch=false --coverage --coverage-reporters=html --coverage-reporters=lcov --coverage-reporters=text-summary",
+    "e2e:docker": "docker run --rm --network=host -v \"$PWD\":/work -w /work mcr.microsoft.com/playwright:v1.59.1-noble npx playwright test"
   },
   "private": true,
   "packageManager": "npm@9.2.0",
@@ -27,6 +28,8 @@
     "@angular/build": "^21.2.9",
     "@angular/cli": "^21.2.9",
     "@angular/compiler-cli": "^21.2.0",
+    "@playwright/test": "^1.59.1",
+    "@types/node": "^25.6.2",
     "@vitest/coverage-v8": "^4.1.5",
     "jsdom": "^28.0.0",
     "prettier": "^3.8.1",
